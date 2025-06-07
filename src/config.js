@@ -3,8 +3,9 @@
  * Centralizes all configuration settings and API keys
  */
 
-// Get API key from environment variables
+// Get API keys from environment variables
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+const FOURSQUARE_API_KEY = import.meta.env.VITE_FOURSQUARE_API_KEY || 'PLACEHOLDER_API_KEY';
 
 // Default map settings
 const DEFAULT_LOCATION = {
@@ -34,6 +35,7 @@ const AUTOCOMPLETE_CONFIG = {
 // Export configuration
 export {
   GOOGLE_MAPS_API_KEY,
+  FOURSQUARE_API_KEY,
   DEFAULT_LOCATION,
   MAP_CONFIG,
   MAPS_API_CONFIG,

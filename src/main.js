@@ -27,6 +27,11 @@ import {
   getDefaultLocation
 } from './services/locationService.js';
 
+import {
+  getNearbyBusinesses,
+  createBusinessMarkerIcons
+} from './services/businessService.js';
+
 // Map is now managed by the map service
 
 // Load Google Maps API with the API key from configuration
@@ -69,44 +74,7 @@ async function fetchPostalCode(latitude, longitude) {
   }
 }
 
-// Function to get nearby businesses using Foursquare Places API
-async function getNearbyBusinesses(latitude, longitude, limit = 4) {
-  const apiKey = import.meta.env.VITE_FOURSQUARE_API_KEY || 'PLACEHOLDER_API_KEY';
-  
-  try {
-    // Foursquare API endpoint for nearby places
-    const url = 'https://api.foursquare.com/v3/places/search';
-    
-    // Query parameters
-    const params = new URLSearchParams({
-      ll: `${latitude},${longitude}`,
-      radius: 1000, // 1000 meters radius
-      limit: limit,
-      categories: '13000,13065,17000,17062', // Food, Restaurants, Shops, etc.
-      sort: 'DISTANCE',
-      fields: 'fsq_id,name,location,geocodes,website,tel,categories'
-    });
-    
-    // Make the API request
-    const response = await fetch(`${url}?${params}`, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': apiKey
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Foursquare API error: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    return data.results || [];
-  } catch (error) {
-    console.error('Error fetching nearby businesses:', error);
-    return [];
-  }
-}
+// getNearbyBusinesses function has been moved to businessService.js
 
 // Function to display location information
 async function displayLocation(latitude, longitude, source = 'Geolocation API') {
@@ -145,6 +113,14 @@ async function displayLocation(latitude, longitude, source = 'Geolocation API') 
 function displayNearbyBusinesses(businesses, userLocation) {
   // Clear any existing markers using map service
   clearAllMarkers();
+  
+  // Re-add the user location marker
+  addMarker(userLocation, {
+    title: "Your Location",
+    icon: {
+      url: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png"
+    }
+  });
   
   // Check if the businesses container already exists
   let businessesContainer = document.getElementById('nearby-businesses');
@@ -237,26 +213,8 @@ function displayNearbyBusinesses(businesses, userLocation) {
       // Add position to bounds
       bounds.extend(position);
       
-      // Define default and highlighted marker icons
-      const defaultIcon = {
-        path: google.maps.SymbolPath.CIRCLE,
-        fillColor: '#EA4335',
-        fillOpacity: 1,
-        scale: 10,
-        strokeColor: '#FFFFFF',
-        strokeWeight: 2,
-        labelOrigin: new google.maps.Point(0, 0)
-      };
-      
-      const highlightedIcon = {
-        path: google.maps.SymbolPath.CIRCLE,
-        fillColor: '#4285F4', // Google blue
-        fillOpacity: 1,
-        scale: 10,
-        strokeColor: '#FFFFFF',
-        strokeWeight: 2,
-        labelOrigin: new google.maps.Point(0, 0)
-      };
+      // Get default and highlighted marker icons from business service
+      const { default: defaultIcon, highlighted: highlightedIcon } = createBusinessMarkerIcons();
       
       // Create marker with label using map service
       const marker = addMarker(position, {
