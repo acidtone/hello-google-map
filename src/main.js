@@ -1,18 +1,27 @@
+// Import configuration
+import { 
+  GOOGLE_MAPS_API_KEY, 
+  DEFAULT_LOCATION, 
+  MAP_CONFIG, 
+  MAPS_API_CONFIG,
+  AUTOCOMPLETE_CONFIG,
+  validateConfig 
+} from './config.js';
+
 // Global variables
 let map;
 let markers = [];
 let activeInfoWindow = null;
 
-// Load Google Maps API with the API key from environment variables
+// Load Google Maps API with the API key from configuration
 function loadGoogleMapsAPI() {
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-  if (!apiKey) {
-    console.error('Google Maps API key is missing. Please check your .env file.');
+  // Validate configuration before proceeding
+  if (!validateConfig()) {
     return;
   }
   
   const script = document.createElement('script');
-  script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initMap`;
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=${MAPS_API_CONFIG.libraries.join(',')}&callback=${MAPS_API_CONFIG.callback}`;
   script.async = true;
   script.defer = true;
   document.head.appendChild(script);
@@ -22,15 +31,15 @@ function loadGoogleMapsAPI() {
 window.initMap = function() {
   // Create a map centered at a default location (will be updated with user's location)
   map = new google.maps.Map(document.getElementById("map"), {
-    center: { lat: 39.7392, lng: -104.9903 }, // Default: Denver
-    zoom: 14,
+    center: { lat: DEFAULT_LOCATION.lat, lng: DEFAULT_LOCATION.lng },
+    zoom: MAP_CONFIG.zoom,
   });
   
   // Try to get user location and update the map
   getUserLocation();
   
   // Set up location predictions after Google Maps API is loaded
-  // This is guaranteed to work here since the Google Maps API callback has fired
+  // This function is only called after the API is ready via the callback=initMap parameter
   setupLocationPredictions();
 };
 
@@ -39,10 +48,10 @@ loadGoogleMapsAPI();
 
 // Function to get postal code from coordinates using Google Maps Geocoding API
 async function getPostalCode(latitude, longitude) {
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+  // Use API key from configuration
   try {
     const response = await fetch(
-      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${apiKey}&channel=Nissan_US`
+      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_MAPS_API_KEY}&channel=Nissan_US`
     );
     const data = await response.json();
     
@@ -358,10 +367,8 @@ function clearMarkers() {
 
 // Function to use default location
 async function useDefaultLocation() {
-  // Default to Denver, CO
-  const defaultLat = 39.7392;
-  const defaultLng = -104.9903;
-  await displayLocation(defaultLat, defaultLng, 'Default location');
+  // Use default location from configuration
+  await displayLocation(DEFAULT_LOCATION.lat, DEFAULT_LOCATION.lng, DEFAULT_LOCATION.name);
 }
 
 // Get the user's location using the Geolocation API
@@ -425,7 +432,7 @@ function getUserLocation() {
 
 // Function to geocode a zip/postal code and update the map
 async function searchByZipCode(zipCode) {
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+  // Use API key from configuration
   const locationSpan = document.querySelector('.user-location span');
   
   try {
@@ -436,7 +443,7 @@ async function searchByZipCode(zipCode) {
     
     // Use Google Maps Geocoding API to convert zip code to coordinates
     const response = await fetch(
-      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(zipCode)}&key=${apiKey}`
+      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(zipCode)}&key=${GOOGLE_MAPS_API_KEY}`
     );
     
     const data = await response.json();
@@ -466,12 +473,8 @@ function setupLocationPredictions() {
   
   console.log('Setting up Places Autocomplete');
   
-  // Create the autocomplete object
-  const autocomplete = new google.maps.places.Autocomplete(zipInput, {
-    types: ['(regions)'], // This includes postal codes, cities, etc.
-    componentRestrictions: { country: 'ca' }, // Restrict to CA - remove or change as needed
-    fields: ['address_components', 'geometry', 'name', 'formatted_address']
-  });
+  // Create the autocomplete object using configuration
+  const autocomplete = new google.maps.places.Autocomplete(zipInput, AUTOCOMPLETE_CONFIG);
   
   // When a place is selected, update the map
   autocomplete.addListener('place_changed', () => {
