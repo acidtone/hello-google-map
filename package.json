@@ -1,0 +1,15 @@
+{
+  "name": "hello-maps",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "dotenv-expand": "^12.0.2",
+    "vite": "^6.3.5"
+  }
+}

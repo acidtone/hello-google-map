@@ -1,0 +1,227 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.user-location {
+  background-color: #f0f0f0;
+  padding: 10px;
+  border-radius: 5px;
+  margin-bottom: 10px;
+}
+
+.location-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin-bottom: 20px;
+  align-items: center;
+}
+
+#locate-me {
+  padding: 8px 15px;
+  background-color: #4285f4;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#locate-me:hover {
+  background-color: #3367d6;
+}
+
+#zip-search-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+#zip-search-form label {
+  margin-right: 5px;
+}
+
+.input-container {
+  position: relative;
+  display: inline-block;
+}
+
+#zip-input {
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  width: 150px;
+}
+
+/* Google Places Autocomplete custom styling */
+.pac-container {
+  border-radius: 0 0 4px 4px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  border: 1px solid #ccc;
+  border-top: none;
+  font-family: Arial, sans-serif;
+  z-index: 1000;
+}
+
+.pac-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #eee;
+}
+
+.pac-item:last-child {
+  border-bottom: none;
+}
+
+.pac-item:hover {
+  background-color: #f0f7ff;
+}
+
+.pac-item-selected {
+  background-color: #f0f7ff;
+}
+
+.pac-icon {
+  display: none;
+}
+
+.pac-item-query {
+  font-size: 14px;
+  color: #333;
+}
+
+#zip-search-form button {
+  padding: 8px 15px;
+  background-color: #34a853;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#zip-search-form button:hover {
+  background-color: #2d8e47;
+}
+
+#map {
+  height: 400px;
+  background-color: #e0e0e0;
+  border-radius: 5px;
+  margin-bottom: 20px;
+}
+
+/* Nearby businesses styles */
+.businesses-container {
+  background-color: #f9f9f9;
+  border-radius: 5px;
+  padding: 15px;
+  margin-top: 20px;
+}
+
+.businesses-container h2 {
+  color: #333;
+  margin-top: 0;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 10px;
+}
+
+.businesses-container ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.businesses-container li {
+  padding: 15px;
+  border-bottom: 1px solid #eee;
+  position: relative;
+  padding-left: 40px; /* Make room for the label */
+  transition: all 0.2s ease;
+}
+
+/* Using minimal contextual selector for highlighted items */
+.businesses-container .highlighted {
+  border: 3px solid #4285F4;
+  background-color: rgba(66, 133, 244, 0.1);
+  border-radius: 4px;
+  box-shadow: 0 0 5px rgba(66, 133, 244, 0.5);
+  z-index: 10;
+  position: relative;
+}
+
+.businesses-container li:hover {
+  background-color: #f0f7ff;
+}
+
+.business-label {
+  position: absolute;
+  left: 10px;
+  top: 15px;
+  width: 24px;
+  height: 24px;
+  background-color: #3498db;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}
+
+.businesses-container li:last-child {
+  border-bottom: none;
+}
+
+.businesses-container h3 {
+  margin: 0 0 10px 0;
+  color: #2c3e50;
+}
+
+.businesses-container p {
+  margin: 5px 0;
+  color: #666;
+}
+
+.businesses-container a {
+  display: inline-block;
+  margin-top: 10px;
+  color: #3498db;
+  text-decoration: none;
+}
+
+.businesses-container a:hover {
+  text-decoration: underline;
+}
+
+/* Media query for larger screens to show map and businesses side by side */
+@media (min-width: 768px) {
+  .container {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  
+  .user-location {
+    width: 100%;
+  }
+  
+  #map {
+    flex: 1;
+    margin-right: 20px;
+    margin-bottom: 0;
+  }
+  
+  .businesses-container {
+    flex: 1;
+    margin-top: 0;
+  }
+}
