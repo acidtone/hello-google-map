@@ -1,17 +1,33 @@
-// Import configuration
+// Import configuration and services
 import { 
   GOOGLE_MAPS_API_KEY, 
-  DEFAULT_LOCATION, 
-  MAP_CONFIG, 
-  MAPS_API_CONFIG,
   AUTOCOMPLETE_CONFIG,
+  MAPS_API_CONFIG,
   validateConfig 
 } from './config.js';
 
-// Global variables
-let map;
-let markers = [];
-let activeInfoWindow = null;
+import {
+  initializeMap,
+  getMap,
+  addMarker,
+  clearMarkers as clearMapMarkers,
+  setCenter,
+  createBounds,
+  fitBounds,
+  createInfoWindow,
+  openInfoWindow,
+  closeActiveInfoWindow,
+  getMarkers
+} from './services/mapService.js';
+
+import {
+  getCurrentLocation,
+  getPostalCode,
+  geocodeZipCode,
+  getDefaultLocation
+} from './services/locationService.js';
+
+// Map is now managed by the map service
 
 // Load Google Maps API with the API key from configuration
 function loadGoogleMapsAPI() {
@@ -29,54 +45,27 @@ function loadGoogleMapsAPI() {
 
 // Initialize the map - this function is called by the Google Maps API
 window.initMap = function() {
-  // Create a map centered at a default location (will be updated with user's location)
-  map = new google.maps.Map(document.getElementById("map"), {
-    center: { lat: DEFAULT_LOCATION.lat, lng: DEFAULT_LOCATION.lng },
-    zoom: MAP_CONFIG.zoom,
-  });
+  // Initialize the map using the map service
+  initializeMap("map");
   
   // Try to get user location and update the map
   getUserLocation();
   
-  // Set up location predictions after Google Maps API is loaded
-  // This function is only called after the API is ready via the callback=initMap parameter
+  // Setup autocomplete for location predictions
   setupLocationPredictions();
 };
 
 // Load the Google Maps API when the page loads
 loadGoogleMapsAPI();
 
-// Function to get postal code from coordinates using Google Maps Geocoding API
-async function getPostalCode(latitude, longitude) {
-  // Use API key from configuration
+// Function to get postal code from coordinates using location service
+async function fetchPostalCode(latitude, longitude) {
   try {
-    const response = await fetch(
-      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_MAPS_API_KEY}&channel=Nissan_US`
-    );
-    const data = await response.json();
-    
-    if (data.status === 'OK') {
-      // Extract postal code from the results
-      let postalCode = 'Unknown';
-      
-      // Look through address components for postal code
-      for (const result of data.results) {
-        for (const component of result.address_components) {
-          if (component.types.includes('postal_code')) {
-            postalCode = component.long_name;
-            return postalCode;
-          }
-        }
-      }
-      
-      return postalCode;
-    } else {
-      console.warn('Geocoding API response status:', data.status);
-      return 'Unknown';
-    }
+    // Use the location service to get the postal code
+    return await getPostalCode(latitude, longitude);
   } catch (error) {
     console.error('Error getting postal code:', error);
-    return 'Unknown';
+    return 'Error';
   }
 }
 
@@ -128,29 +117,25 @@ async function displayLocation(latitude, longitude, source = 'Geolocation API') 
   
   try {
     // Get postal code
-    const postalCode = await getPostalCode(latitude, longitude);
+    const postalCode = await fetchPostalCode(latitude, longitude);
     locationSpan.textContent = `Lat: ${Number(latitude).toFixed(6)}, Lng: ${Number(longitude).toFixed(6)} (${postalCode}) (${source})`;
     console.log(`Location from ${source}: Lat: ${latitude}, Lng: ${longitude}, Postal Code: ${postalCode}`);
     
-    // Center the map on user's location
-    if (map) {
-      const userLocation = { lat: latitude, lng: longitude };
-      map.setCenter(userLocation);
-      
-      // Add a marker for the user's location
-      new google.maps.Marker({
-        position: userLocation,
-        map: map,
-        title: "Your Location",
-        icon: {
-          url: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png"
-        }
-      });
-    }
+    // Center the map on user's location using map service
+    const userLocation = { lat: latitude, lng: longitude };
+    setCenter(userLocation);
+    
+    // Add a marker for the user's location using map service
+    addMarker(userLocation, {
+      title: "Your Location",
+      icon: {
+        url: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png"
+      }
+    });
     
     // Get nearby businesses
     const businesses = await getNearbyBusinesses(latitude, longitude);
-    displayNearbyBusinesses(businesses, { lat: latitude, lng: longitude });
+    displayNearbyBusinesses(businesses, userLocation);
   } catch (error) {
     console.error('Error updating with location data:', error);
   }
@@ -158,8 +143,8 @@ async function displayLocation(latitude, longitude, source = 'Geolocation API') 
 
 // Function to display nearby businesses in the UI and add markers to the map
 function displayNearbyBusinesses(businesses, userLocation) {
-  // Clear any existing markers
-  clearMarkers();
+  // Clear any existing markers using map service
+  clearAllMarkers();
   
   // Check if the businesses container already exists
   let businessesContainer = document.getElementById('nearby-businesses');
@@ -190,8 +175,8 @@ function displayNearbyBusinesses(businesses, userLocation) {
   // Labels for markers (A, B, C, D)
   const labels = ['A', 'B', 'C', 'D'];
   
-  // Bounds for the map to fit all markers
-  const bounds = new google.maps.LatLngBounds();
+  // Create bounds for the map to fit all markers using map service
+  const bounds = createBounds();
   
   // Add user location to bounds
   if (userLocation) {
@@ -273,10 +258,8 @@ function displayNearbyBusinesses(businesses, userLocation) {
         labelOrigin: new google.maps.Point(0, 0)
       };
       
-      // Create marker with label
-      const marker = new google.maps.Marker({
-        position: position,
-        map: map,
+      // Create marker with label using map service
+      const marker = addMarker(position, {
         label: {
           text: labels[index],
           color: '#FFFFFF',
@@ -286,8 +269,14 @@ function displayNearbyBusinesses(businesses, userLocation) {
         title: business.name
       });
       
-      // Store marker in global array
-      markers.push(marker);
+      // Create a marker info object to store the relationship between marker and list item
+      const markerInfo = {
+        marker: marker,
+        listItem: listItem,
+        defaultIcon: defaultIcon,
+        highlightedIcon: highlightedIcon,
+        business: business
+      };
       
       // Add click event to marker - go to website
       if (business.website) {
@@ -302,7 +291,6 @@ function displayNearbyBusinesses(businesses, userLocation) {
         marker.setIcon(highlightedIcon);
         // Add highlighted class to list item
         listItem.classList.add('highlighted');
-        console.log('Added highlighted class to:', listItem.id);
       });
       
       listItem.addEventListener('mouseleave', () => {
@@ -318,8 +306,6 @@ function displayNearbyBusinesses(businesses, userLocation) {
         marker.setIcon(highlightedIcon);
         // Add highlighted class to list item
         listItem.classList.add('highlighted');
-        // Debug log
-        console.log('Marker hover - adding highlighted to:', listItem.id);
         // Force a repaint to ensure the style is applied
         listItem.style.display = 'none';
         listItem.offsetHeight; // This triggers a reflow
@@ -331,8 +317,6 @@ function displayNearbyBusinesses(businesses, userLocation) {
         marker.setIcon(defaultIcon);
         // Remove highlighted class from list item
         listItem.classList.remove('highlighted');
-        // Debug log
-        console.log('Marker hover out - removing highlighted from:', listItem.id);
       });
     }
     
@@ -343,124 +327,68 @@ function displayNearbyBusinesses(businesses, userLocation) {
   // Add the list to the container
   businessesContainer.appendChild(businessList);
   
-  // Fit the map to show all markers
-  if (map && markers.length > 0) {
-    map.fitBounds(bounds);
+  // Fit the map to show all markers using map service
+  if (getMarkers().length > 0) {
+    fitBounds(bounds);
     
     // If we only have one marker (just the user), zoom out a bit
-    if (markers.length === 0 && userLocation) {
-      map.setZoom(14);
+    if (getMarkers().length === 0 && userLocation) {
+      setCenter(userLocation, 14);
     }
   }
 }
 
-// Function to clear all markers from the map
-function clearMarkers() {
-  // Remove all markers from the map
-  for (let i = 0; i < markers.length; i++) {
-    markers[i].setMap(null);
-  }
-  
-  // Clear the markers array
-  markers = [];
+// Function to clear all markers from the map (wrapper around map service)
+function clearAllMarkers() {
+  // Use the map service's clearMarkers function
+  return clearMapMarkers();
 }
 
 // Function to use default location
 async function useDefaultLocation() {
-  // Use default location from configuration
-  await displayLocation(DEFAULT_LOCATION.lat, DEFAULT_LOCATION.lng, DEFAULT_LOCATION.name);
+  // Get default location from location service
+  const defaultLocation = getDefaultLocation();
+  await displayLocation(defaultLocation.lat, defaultLocation.lng, defaultLocation.name);
 }
 
-// Get the user's location using the Geolocation API
+// Get the user's location using the location service
 function getUserLocation() {
   // Clear any existing markers
-  clearMarkers();
+  clearAllMarkers();
   
   const locationSpan = document.querySelector('.user-location span');
+  locationSpan.textContent = 'Fetching your location...';
   
-  // Check if the browser supports geolocation
-  if (navigator.geolocation) {
-    // Show that we're fetching the location
-    locationSpan.textContent = 'Fetching your location...';
-    
-    // Get the current position
-    navigator.geolocation.getCurrentPosition(
-      // Success callback
-      async (position) => {
-        // Get latitude and longitude from the position object
-        const latitude = position.coords.latitude;
-        const longitude = position.coords.longitude;
-        
-        // Display the coordinates using our display function
-        await displayLocation(latitude, longitude);
-      },
-      // Error callback
-      async (error) => {
-        // Handle errors
-        switch(error.code) {
-          case error.PERMISSION_DENIED:
-            console.log('User denied the request for geolocation. Using default location.');
-            await useDefaultLocation();
-            break;
-          case error.POSITION_UNAVAILABLE:
-            console.log('Location information is unavailable. Using default location.');
-            await useDefaultLocation();
-            break;
-          case error.TIMEOUT:
-            console.log('The request to get user location timed out. Using default location.');
-            await useDefaultLocation();
-            break;
-          case error.UNKNOWN_ERROR:
-            console.log('An unknown error occurred. Using default location.');
-            await useDefaultLocation();
-            break;
-        }
-      },
-      // Options
-      {
-        enableHighAccuracy: true, // Get the most accurate position possible
-        timeout: 5000,           // Time to wait before timing out (5 seconds)
-        maximumAge: 0            // Don't use a cached position
-      }
-    );
-  } else {
-    // Browser doesn't support geolocation
-    console.log('Geolocation is not supported by this browser. Using default location.');
-    useDefaultLocation();
-  }
+  // Use the location service to get the current location
+  getCurrentLocation()
+    .then(async (position) => {
+      // Display the coordinates using our display function
+      await displayLocation(position.lat, position.lng);
+    })
+    .catch(async (error) => {
+      // Handle errors
+      console.log('Error getting location:', error.message);
+      await useDefaultLocation();
+    });
 }
 
 // Function to geocode a zip/postal code and update the map
 async function searchByZipCode(zipCode) {
-  // Use API key from configuration
   const locationSpan = document.querySelector('.user-location span');
   
   try {
     locationSpan.textContent = `Searching for ${zipCode}...`;
     
     // Clear any existing markers
-    clearMarkers();
+    clearAllMarkers();
     
-    // Use Google Maps Geocoding API to convert zip code to coordinates
-    const response = await fetch(
-      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(zipCode)}&key=${GOOGLE_MAPS_API_KEY}`
-    );
+    // Use location service to geocode the zip code
+    const locationData = await geocodeZipCode(zipCode);
     
-    const data = await response.json();
-    
-    if (data.status === 'OK' && data.results && data.results.length > 0) {
-      const location = data.results[0].geometry.location;
-      const latitude = location.lat;
-      const longitude = location.lng;
-      
-      // Display the location and update the map
-      await displayLocation(latitude, longitude, `Zip/Postal Code: ${zipCode}`);
-    } else {
-      locationSpan.textContent = `Could not find location for ${zipCode}. Error: ${data.status}`;
-      console.error('Geocoding error:', data.status);
-    }
+    // Display the location and update the map
+    await displayLocation(locationData.lat, locationData.lng, `Zip/Postal Code: ${zipCode}`);
   } catch (error) {
-    locationSpan.textContent = `Error searching for ${zipCode}`;
+    locationSpan.textContent = `Could not find location for ${zipCode}`;
     console.error('Error geocoding zip code:', error);
   }
 }
@@ -484,7 +412,7 @@ function setupLocationPredictions() {
       // User entered the name of a place that was not suggested
       // or pressed Enter before selecting a suggestion
       console.log('No details available for input: ' + place.name);
-      if (zipInput.value.trim()) {
+        if (zipInput.value.trim()) {
         searchByZipCode(zipInput.value.trim());
       }
       return;
