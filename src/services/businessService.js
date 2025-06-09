@@ -4,6 +4,7 @@
  */
 
 import { FOURSQUARE_API_KEY } from '../config.js';
+import { handleError } from './errorService.js';
 
 /**
  * Get nearby businesses using Foursquare Places API
@@ -14,6 +15,11 @@ import { FOURSQUARE_API_KEY } from '../config.js';
  */
 async function getNearbyBusinesses(latitude, longitude, limit = 4) {
   try {
+    // Validate Foursquare API key configuration
+    if (!FOURSQUARE_API_KEY || FOURSQUARE_API_KEY === 'PLACEHOLDER_API_KEY') {
+      throw new Error('Foursquare API key is missing. Please check your .env file.');
+    }
+    
     // Foursquare API endpoint for nearby places
     const url = 'https://api.foursquare.com/v3/places/search';
     
@@ -43,7 +49,9 @@ async function getNearbyBusinesses(latitude, longitude, limit = 4) {
     const data = await response.json();
     return data.results || [];
   } catch (error) {
-    console.error('Error fetching nearby businesses:', error);
+    // Use FSM-compatible error handling
+    const errorInfo = handleError(error, 'business_search');
+    console.error('Error fetching nearby businesses:', error, errorInfo);
     return [];
   }
 }

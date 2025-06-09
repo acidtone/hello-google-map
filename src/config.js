@@ -47,8 +47,15 @@ export {
  * @throws {Error} - If configuration is invalid
  */
 export function validateConfig() {
+  // Check for Google Maps API key (critical)
   if (!GOOGLE_MAPS_API_KEY) {
     throw new Error('Google Maps API key is missing. Please check your .env file.');
   }
+  
+  // Check for Foursquare API key (non-critical but needed for business search)
+  if (!FOURSQUARE_API_KEY || FOURSQUARE_API_KEY === 'PLACEHOLDER_API_KEY') {
+    throw new Error('Foursquare API key is missing. Please check your .env file.');
+  }
+  
   return true;
 }

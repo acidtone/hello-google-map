@@ -11,7 +11,8 @@ const ErrorTypes = {
   POSTAL_CODE_FAILED: 'postal_code_failed',
   BUSINESS_SEARCH_FAILED: 'business_search_failed',
   MAPS_API_FAILED: 'maps_api_failed',
-  API_KEY_MISSING: 'api_key_missing',
+  GOOGLE_API_KEY_MISSING: 'google_api_key_missing',
+  FOURSQUARE_API_KEY_MISSING: 'foursquare_api_key_missing',
   UNKNOWN: 'unknown_error'
 };
 
@@ -45,7 +46,8 @@ function categorizeError(error, context) {
   
   // Configuration errors
   if (context === 'config_validation') {
-    if (error.message?.includes('API key')) return ErrorTypes.API_KEY_MISSING;
+    if (error.message?.includes('Google Maps API key')) return ErrorTypes.GOOGLE_API_KEY_MISSING;
+    if (error.message?.includes('Foursquare API key')) return ErrorTypes.FOURSQUARE_API_KEY_MISSING;
   }
   
   return ErrorTypes.UNKNOWN;
@@ -64,7 +66,8 @@ function getErrorMessage(errorType) {
     [ErrorTypes.POSTAL_CODE_FAILED]: 'Showing location without postal code data.',
     [ErrorTypes.BUSINESS_SEARCH_FAILED]: 'Showing location without nearby businesses.',
     [ErrorTypes.MAPS_API_FAILED]: 'Maps service is currently unavailable. Please try again later.',
-    [ErrorTypes.API_KEY_MISSING]: 'Maps configuration error. Please check application settings.',
+    [ErrorTypes.GOOGLE_API_KEY_MISSING]: 'Maps configuration error. Please check application settings.',
+    [ErrorTypes.FOURSQUARE_API_KEY_MISSING]: 'Business search unavailable. Please check application settings.',
     [ErrorTypes.UNKNOWN]: 'An error occurred. Please try again.'
   };
   
@@ -87,8 +90,10 @@ function getRecoveryAction(errorType) {
     case ErrorTypes.BUSINESS_SEARCH_FAILED:
       return RecoveryActions.CONTINUE_PARTIAL;
     case ErrorTypes.MAPS_API_FAILED:
-    case ErrorTypes.API_KEY_MISSING:
-      return RecoveryActions.NONE; // No automatic recovery for API failures
+    case ErrorTypes.GOOGLE_API_KEY_MISSING:
+      return RecoveryActions.NONE; // No automatic recovery for critical API failures
+    case ErrorTypes.FOURSQUARE_API_KEY_MISSING:
+      return RecoveryActions.CONTINUE_PARTIAL; // Can still show map without businesses
     default:
       return RecoveryActions.NONE;
   }
