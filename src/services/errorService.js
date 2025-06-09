@@ -11,6 +11,7 @@ const ErrorTypes = {
   POSTAL_CODE_FAILED: 'postal_code_failed',
   BUSINESS_SEARCH_FAILED: 'business_search_failed',
   MAPS_API_FAILED: 'maps_api_failed',
+  API_KEY_MISSING: 'api_key_missing',
   UNKNOWN: 'unknown_error'
 };
 
@@ -42,6 +43,11 @@ function categorizeError(error, context) {
   if (context === 'maps_api') return ErrorTypes.MAPS_API_FAILED;
   if (context === 'map_display') return ErrorTypes.UNKNOWN;
   
+  // Configuration errors
+  if (context === 'config_validation') {
+    if (error.message?.includes('API key')) return ErrorTypes.API_KEY_MISSING;
+  }
+  
   return ErrorTypes.UNKNOWN;
 }
 
@@ -58,6 +64,7 @@ function getErrorMessage(errorType) {
     [ErrorTypes.POSTAL_CODE_FAILED]: 'Showing location without postal code data.',
     [ErrorTypes.BUSINESS_SEARCH_FAILED]: 'Showing location without nearby businesses.',
     [ErrorTypes.MAPS_API_FAILED]: 'Maps service is currently unavailable. Please try again later.',
+    [ErrorTypes.API_KEY_MISSING]: 'Maps configuration error. Please check application settings.',
     [ErrorTypes.UNKNOWN]: 'An error occurred. Please try again.'
   };
   
@@ -80,7 +87,8 @@ function getRecoveryAction(errorType) {
     case ErrorTypes.BUSINESS_SEARCH_FAILED:
       return RecoveryActions.CONTINUE_PARTIAL;
     case ErrorTypes.MAPS_API_FAILED:
-      return RecoveryActions.NONE; // No automatic recovery for API loading failures
+    case ErrorTypes.API_KEY_MISSING:
+      return RecoveryActions.NONE; // No automatic recovery for API failures
     default:
       return RecoveryActions.NONE;
   }

@@ -64,16 +64,33 @@ window.gm_authFailure = function() {
 
 // Load Google Maps API with the API key from configuration
 function loadGoogleMapsAPI() {
-  // Validate configuration before proceeding
-  if (!validateConfig()) {
-    return;
+  try {
+    // Validate configuration before proceeding
+    validateConfig();
+    
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=${MAPS_API_CONFIG.libraries.join(',')}&callback=${MAPS_API_CONFIG.callback}`;
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
+  } catch (error) {
+    // Handle validation errors in an FSM-friendly way
+    const errorInfo = handleError(error, 'config_validation');
+    
+    // Display error message in the map container
+    const mapElement = document.getElementById('map');
+    if (mapElement) {
+      mapElement.innerHTML = `<div class="error-message">${errorInfo.message}</div>`;
+    }
+    
+    // Also update the location span
+    const locationSpan = document.querySelector('.user-location span');
+    if (locationSpan) {
+      locationSpan.textContent = errorInfo.message;
+    }
+    
+    console.error('Configuration validation failed:', error);
   }
-  
-  const script = document.createElement('script');
-  script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=${MAPS_API_CONFIG.libraries.join(',')}&callback=${MAPS_API_CONFIG.callback}`;
-  script.async = true;
-  script.defer = true;
-  document.head.appendChild(script);
 }
 
 // Initialize the map - this function is called by the Google Maps API

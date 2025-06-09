@@ -44,12 +44,11 @@ export {
 
 /**
  * Validates that required configuration is present
- * @returns {boolean} - Whether the configuration is valid
+ * @throws {Error} - If configuration is invalid
  */
 export function validateConfig() {
   if (!GOOGLE_MAPS_API_KEY) {
-    console.error('Google Maps API key is missing. Please check your .env file.');
-    return false;
+    throw new Error('Google Maps API key is missing. Please check your .env file.');
   }
   return true;
 }
