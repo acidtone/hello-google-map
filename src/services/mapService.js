@@ -7,7 +7,9 @@ import { GOOGLE_MAPS_API_KEY, MAP_CONFIG, MAPS_API_CONFIG } from '../config.js';
 
 // Private variables for the module
 let map = null;
-let markers = [];
+let markers = []; // Legacy array for backward compatibility
+let userMarkers = []; // Array to store user location markers
+let businessMarkers = []; // Array to store business markers
 let activeInfoWindow = null;
 
 /**
@@ -37,9 +39,10 @@ function getMap() {
  * Add a marker to the map
  * @param {Object} position - The position (lat/lng) for the marker
  * @param {Object} options - Additional options for the marker
+ * @param {string} markerType - Type of marker ('user' or 'business')
  * @returns {google.maps.Marker} - The created marker
  */
-function addMarker(position, options = {}) {
+function addMarker(position, options = {}, markerType = 'business') {
   if (!map) {
     console.error('Map not initialized');
     return null;
@@ -51,7 +54,15 @@ function addMarker(position, options = {}) {
     ...options
   });
 
-  markers.push(marker);
+  // Add to appropriate collection based on type
+  markers.push(marker); // Add to legacy array for backward compatibility
+  
+  if (markerType === 'user') {
+    userMarkers.push(marker);
+  } else {
+    businessMarkers.push(marker);
+  }
+  
   return marker;
 }
 
@@ -63,6 +74,40 @@ function clearMarkers() {
     markers[i].setMap(null);
   }
   markers = [];
+  userMarkers = [];
+  businessMarkers = [];
+}
+
+/**
+ * Clear only business markers from the map
+ */
+function clearBusinessMarkers() {
+  // Remove business markers from the map
+  for (let i = 0; i < businessMarkers.length; i++) {
+    businessMarkers[i].setMap(null);
+  }
+  
+  // Also remove them from the legacy markers array
+  markers = markers.filter(marker => !businessMarkers.includes(marker));
+  
+  // Clear the business markers array
+  businessMarkers = [];
+}
+
+/**
+ * Clear only user markers from the map
+ */
+function clearUserMarkers() {
+  // Remove user markers from the map
+  for (let i = 0; i < userMarkers.length; i++) {
+    userMarkers[i].setMap(null);
+  }
+  
+  // Also remove them from the legacy markers array
+  markers = markers.filter(marker => !userMarkers.includes(marker));
+  
+  // Clear the user markers array
+  userMarkers = [];
 }
 
 /**
@@ -155,12 +200,14 @@ function getMarkers() {
   return markers;
 }
 
-// Export public methods
+// Export public functions
 export {
   initializeMap,
   getMap,
   addMarker,
-  clearMarkers,
+  clearMarkers as clearAllMarkers,
+  clearBusinessMarkers,
+  clearUserMarkers,
   setCenter,
   createBounds,
   fitBounds,

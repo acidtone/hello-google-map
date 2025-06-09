@@ -10,13 +10,14 @@ import {
   initializeMap,
   getMap,
   addMarker,
-  clearMarkers as clearMapMarkers,
+  clearAllMarkers,
+  clearBusinessMarkers,
+  clearUserMarkers,
   setCenter,
   createBounds,
   fitBounds,
   createInfoWindow,
   openInfoWindow,
-  closeActiveInfoWindow,
   getMarkers
 } from './services/mapService.js';
 
@@ -86,13 +87,10 @@ async function displayLocation(latitude, longitude, source = 'Geolocation API') 
   locationSpan.textContent = `Lat: ${Number(latitude).toFixed(6)}, Lng: ${Number(longitude).toFixed(6)} (${source})`;
   
   try {
-    // Get postal code
-    const postalCode = await fetchPostalCode(latitude, longitude);
-    locationSpan.textContent = `Lat: ${Number(latitude).toFixed(6)}, Lng: ${Number(longitude).toFixed(6)} (${postalCode}) (${source})`;
-    console.log(`Location from ${source}: Lat: ${latitude}, Lng: ${longitude}, Postal Code: ${postalCode}`);
-    
-    // Center the map on user's location using map service
+    // Create user location object
     const userLocation = { lat: latitude, lng: longitude };
+    
+    // Immediately center the map and add marker - don't wait for API calls
     setCenter(userLocation);
     
     // Add a marker for the user's location using map service
@@ -101,10 +99,23 @@ async function displayLocation(latitude, longitude, source = 'Geolocation API') 
       icon: {
         url: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png"
       }
-    });
+    }, 'user'); // Specify this is a user marker
     
-    // Get nearby businesses
-    const businesses = await getNearbyBusinesses(latitude, longitude);
+    // Start both API calls in parallel
+    const postalCodePromise = fetchPostalCode(latitude, longitude);
+    const businessesPromise = getNearbyBusinesses(latitude, longitude);
+    
+    // Wait for both API calls to complete in parallel
+    const [postalCode, businesses] = await Promise.all([
+      postalCodePromise,
+      businessesPromise
+    ]);
+    
+    // Update UI with results
+    locationSpan.textContent = `Lat: ${Number(latitude).toFixed(6)}, Lng: ${Number(longitude).toFixed(6)} (${postalCode}) (${source})`;
+    console.log(`Location from ${source}: Lat: ${latitude}, Lng: ${longitude}, Postal Code: ${postalCode}`);
+    
+    // Display businesses
     displayNearbyBusinesses(businesses, userLocation);
   } catch (error) {
     console.error('Error updating with location data:', error);
@@ -113,16 +124,10 @@ async function displayLocation(latitude, longitude, source = 'Geolocation API') 
 
 // Function to display nearby businesses in the UI and add markers to the map
 function displayNearbyBusinesses(businesses, userLocation) {
-  // Clear any existing markers using map service
-  clearAllMarkers();
+  // Only clear business markers, preserving user location marker
+  clearBusinessMarkers();
   
-  // Re-add the user location marker
-  addMarker(userLocation, {
-    title: "Your Location",
-    icon: {
-      url: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png"
-    }
-  });
+  // No need to re-add the user location marker since we're not clearing it anymore
   
   // Check if the businesses container already exists
   let businessesContainer = document.getElementById('nearby-businesses');
@@ -261,11 +266,8 @@ function displayNearbyBusinesses(businesses, userLocation) {
   }
 }
 
-// Function to clear all markers from the map (wrapper around map service)
-function clearAllMarkers() {
-  // Use the map service's clearMarkers function
-  return clearMapMarkers();
-}
+// This function is now directly imported from mapService.js
+// No need for a wrapper function anymore
 
 // Function to use default location
 async function useDefaultLocation() {
@@ -276,7 +278,7 @@ async function useDefaultLocation() {
 
 // Get the user's location using the location service
 function getUserLocation() {
-  // Clear any existing markers
+  // Clear any existing markers (both user and business)
   clearAllMarkers();
   
   const locationSpan = document.querySelector('.user-location span');
@@ -302,7 +304,7 @@ async function searchByZipCode(zipCode) {
   try {
     locationSpan.textContent = `Searching for ${zipCode}...`;
     
-    // Clear any existing markers
+    // Clear any existing markers (both user and business for a new search)
     clearAllMarkers();
     
     // Use location service to geocode the zip code
