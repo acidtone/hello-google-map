@@ -91,15 +91,25 @@ function initializeMap(elementId) {
  * 
  * FSM State Pattern:
  * - This is a state query function that returns the current map instance
- * - Implicitly indicates whether state is UNINITIALIZED (null) or READY (map instance)
+ * - Provides warnings based on current state
+ * - Still allows access to map in any state for backward compatibility
  * 
  * Future FSM Integration:
- * - Could return {state: map ? 'READY' : 'UNINITIALIZED', map: map}
- * - Could be used by state machine to determine current state
+ * - Could return {state: currentMapState, map: map}
+ * - Could throw errors or return null for invalid states
  * 
  * @returns {google.maps.Map|null} - The current map instance or null if not initialized
  */
 function getMap() {
+  // Check if we're in a valid state to return the map
+  if (currentMapState === MapState.ERROR) {
+    console.warn('Map is in ERROR state and may not be usable');
+  } else if (currentMapState === MapState.INITIALIZING) {
+    console.warn('Map is still initializing and may not be ready');
+  } else if (currentMapState === MapState.UNINITIALIZED) {
+    console.warn('Map has not been initialized yet');
+  }
+  
   return map;
 }
 
@@ -122,40 +132,54 @@ function getMapState() {
  * - Entry State: READY (map must be initialized)
  * - During Execution: UPDATING (adding marker)
  * - Success Exit State: READY (marker added)
- * - Error Exit State: ERROR (implicit in console.error)
+ * - Error Exit State: ERROR (with explicit state transition)
  * 
  * Future FSM Integration:
- * - Could check map state before execution
+ * - Could check state before execution and reject if not in READY state
  * - Could return {state: 'MARKER_ADDED', marker: markerInstance}
- * - Could emit events for marker creation
+ * - Could emit events for state transitions
  * 
  * @param {Object} position - The position (lat/lng) for the marker
  * @param {Object} options - Additional options for the marker
  * @param {string} markerType - Type of marker ('user' or 'business')
- * @returns {google.maps.Marker} - The created marker
+ * @returns {google.maps.Marker} - The created marker or null if operation fails
  */
 function addMarker(position, options = {}, markerType = 'business') {
+  // Check if map is initialized
   if (!map) {
     console.error('Map not initialized');
     return null;
   }
 
-  const marker = new google.maps.Marker({
-    position,
-    map,
-    ...options
-  });
+  // Set state to UPDATING before adding marker
+  currentMapState = MapState.UPDATING;
 
-  // Add to appropriate collection based on type
-  markers.push(marker); // Add to legacy array for backward compatibility
-  
-  if (markerType === 'user') {
-    userMarkers.push(marker);
-  } else {
-    businessMarkers.push(marker);
+  try {
+    const marker = new google.maps.Marker({
+      position,
+      map,
+      ...options
+    });
+
+    // Add to appropriate collection based on type
+    markers.push(marker); // Add to legacy array for backward compatibility
+    
+    if (markerType === 'user') {
+      userMarkers.push(marker);
+    } else {
+      businessMarkers.push(marker);
+    }
+    
+    // Set state back to READY after marker is added
+    currentMapState = MapState.READY;
+    
+    return marker;
+  } catch (error) {
+    // Set state to ERROR if adding marker fails
+    currentMapState = MapState.ERROR;
+    console.error('Failed to add marker:', error);
+    return null;
   }
-  
-  return marker;
 }
 
 /**
@@ -219,7 +243,7 @@ function clearUserMarkers() {
  * - Entry State: READY
  * - During Execution: UPDATING (changing view)
  * - Success Exit State: READY (with new center/zoom)
- * - Error Exit State: ERROR (implicit in console.error)
+ * - Error Exit State: ERROR (with explicit state transition)
  * 
  * Future FSM Integration:
  * - Could emit a 'VIEW_CHANGED' event
@@ -235,9 +259,21 @@ function setCenter(position, zoom = null) {
     return;
   }
 
-  map.setCenter(position);
-  if (zoom !== null) {
-    map.setZoom(zoom);
+  // Set state to UPDATING before changing the map view
+  currentMapState = MapState.UPDATING;
+
+  try {
+    map.setCenter(position);
+    if (zoom !== null) {
+      map.setZoom(zoom);
+    }
+    
+    // Set state back to READY after view is updated
+    currentMapState = MapState.READY;
+  } catch (error) {
+    // Set state to ERROR if updating view fails
+    currentMapState = MapState.ERROR;
+    console.error('Failed to update map view:', error);
   }
 }
 
