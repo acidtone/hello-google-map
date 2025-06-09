@@ -1,6 +1,19 @@
 /**
  * Map Service Module
  * Encapsulates map initialization and operations
+ * 
+ * FSM State Patterns:
+ * This module implements loose FSM patterns for future integration with a state machine.
+ * 
+ * Potential Map States:
+ * - UNINITIALIZED: Initial state, map not yet created
+ * - INITIALIZING: Map creation in progress
+ * - READY: Map successfully created and ready for operations
+ * - ERROR: Error occurred during map operations
+ * - UPDATING: Map is being updated (markers, bounds, etc.)
+ * 
+ * State transitions are currently handled implicitly through function calls.
+ * Future FSM integration could make these transitions explicit.
  */
 
 import { GOOGLE_MAPS_API_KEY, MAP_CONFIG, MAPS_API_CONFIG } from '../config.js';
@@ -14,6 +27,18 @@ let activeInfoWindow = null;
 
 /**
  * Initialize the map with the given element ID
+ * 
+ * FSM State Pattern:
+ * - Entry State: UNINITIALIZED
+ * - During Execution: INITIALIZING
+ * - Success Exit State: READY (map instance created)
+ * - Error Exit State: ERROR (implicit in console.error)
+ * 
+ * Future FSM Integration:
+ * - Could track state explicitly: let mapState = 'INITIALIZING'
+ * - Could return {state: 'READY', map: mapInstance} on success
+ * - Could throw errors with state information for FSM error handling
+ * 
  * @param {string} elementId - The ID of the DOM element to contain the map
  * @returns {google.maps.Map} - The initialized map instance
  */
@@ -29,6 +54,15 @@ function initializeMap(elementId) {
 
 /**
  * Get the current map instance
+ * 
+ * FSM State Pattern:
+ * - This is a state query function that returns the current map instance
+ * - Implicitly indicates whether state is UNINITIALIZED (null) or READY (map instance)
+ * 
+ * Future FSM Integration:
+ * - Could return {state: map ? 'READY' : 'UNINITIALIZED', map: map}
+ * - Could be used by state machine to determine current state
+ * 
  * @returns {google.maps.Map|null} - The current map instance or null if not initialized
  */
 function getMap() {
@@ -37,6 +71,18 @@ function getMap() {
 
 /**
  * Add a marker to the map
+ * 
+ * FSM State Pattern:
+ * - Entry State: READY (map must be initialized)
+ * - During Execution: UPDATING (adding marker)
+ * - Success Exit State: READY (marker added)
+ * - Error Exit State: ERROR (implicit in console.error)
+ * 
+ * Future FSM Integration:
+ * - Could check map state before execution
+ * - Could return {state: 'MARKER_ADDED', marker: markerInstance}
+ * - Could emit events for marker creation
+ * 
  * @param {Object} position - The position (lat/lng) for the marker
  * @param {Object} options - Additional options for the marker
  * @param {string} markerType - Type of marker ('user' or 'business')
@@ -68,6 +114,16 @@ function addMarker(position, options = {}, markerType = 'business') {
 
 /**
  * Clear all markers from the map
+ * 
+ * FSM State Pattern:
+ * - Entry State: READY (with markers)
+ * - During Execution: UPDATING (clearing markers)
+ * - Exit State: READY (without markers)
+ * 
+ * Future FSM Integration:
+ * - Could emit a 'MARKERS_CLEARED' event
+ * - Could be triggered by state machine transitions
+ * - Could return state information: {state: 'MARKERS_CLEARED', count: removedCount}
  */
 function clearMarkers() {
   for (let i = 0; i < markers.length; i++) {
@@ -112,6 +168,18 @@ function clearUserMarkers() {
 
 /**
  * Set the map center and zoom level
+ * 
+ * FSM State Pattern:
+ * - Entry State: READY
+ * - During Execution: UPDATING (changing view)
+ * - Success Exit State: READY (with new center/zoom)
+ * - Error Exit State: ERROR (implicit in console.error)
+ * 
+ * Future FSM Integration:
+ * - Could emit a 'VIEW_CHANGED' event
+ * - Could track view state separately from map state
+ * - Could be part of a user interaction state machine
+ * 
  * @param {Object} position - The position (lat/lng) to center on
  * @param {number} zoom - The zoom level (optional)
  */
@@ -129,6 +197,15 @@ function setCenter(position, zoom = null) {
 
 /**
  * Create a bounds object and extend it with the given positions
+ * 
+ * FSM State Pattern:
+ * - This is a utility function with no state transitions
+ * - Prepares data for state transitions in other functions
+ * 
+ * Future FSM Integration:
+ * - Could be part of a map view state management system
+ * - Could track bounds as part of application state
+ * 
  * @param {Array} positions - Array of positions to include in bounds
  * @returns {google.maps.LatLngBounds} - The created bounds
  */

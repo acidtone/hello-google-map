@@ -1,12 +1,37 @@
 /**
  * Location Service Module
  * Handles geolocation and address-related functionality
+ * 
+ * FSM State Patterns:
+ * This module implements loose FSM patterns for future integration with a state machine.
+ * 
+ * Potential Location States:
+ * - IDLE: Initial state, no location operations in progress
+ * - FETCHING: Actively retrieving user location
+ * - GEOCODING: Converting coordinates to address or vice versa
+ * - READY: Location data successfully retrieved
+ * - ERROR: Error occurred during location operations
+ * 
+ * State transitions are currently handled implicitly through Promise resolution/rejection.
+ * Future FSM integration could make these transitions explicit.
  */
 
 import { GOOGLE_MAPS_API_KEY, DEFAULT_LOCATION } from '../config.js';
 
 /**
  * Get the user's current location using the Geolocation API
+ * 
+ * FSM State Pattern:
+ * - Entry State: IDLE
+ * - During Execution: FETCHING
+ * - Success Exit State: READY (implicit in Promise resolution)
+ * - Error Exit State: ERROR (implicit in Promise rejection)
+ * 
+ * Future FSM Integration:
+ * - Could return state object {state: 'READY', data: {lat, lng}} on success
+ * - Could return state object {state: 'ERROR', error: Error} on failure
+ * - Could emit state transition events for external subscribers
+ * 
  * @returns {Promise} - Resolves with the user's location or rejects with an error
  */
 function getCurrentLocation() {
@@ -32,6 +57,20 @@ function getCurrentLocation() {
 
 /**
  * Get postal code from coordinates using Google Maps Geocoding API
+ * 
+ * FSM State Pattern:
+ * - Entry State: IDLE
+ * - During Execution: GEOCODING
+ * - Success Exit States: 
+ *   - READY (when postal code found)
+ *   - PARTIAL (when API succeeds but no postal code found, returns 'Unknown')
+ * - Error Exit State: ERROR (handled internally, returns 'Unknown')
+ * 
+ * Future FSM Integration:
+ * - Could return {state: 'READY', data: postalCode} on success
+ * - Could return {state: 'PARTIAL', data: 'Unknown'} when no postal code found
+ * - Could return {state: 'ERROR', error: Error} and let caller handle errors
+ * 
  * @param {number} latitude - The latitude
  * @param {number} longitude - The longitude
  * @returns {Promise<string>} - Resolves with the postal code or 'Unknown'
@@ -69,6 +108,18 @@ async function getPostalCode(latitude, longitude) {
 
 /**
  * Geocode a zip/postal code to get coordinates
+ * 
+ * FSM State Pattern:
+ * - Entry State: IDLE
+ * - During Execution: GEOCODING
+ * - Success Exit State: READY (implicit in Promise resolution)
+ * - Error Exit State: ERROR (explicit throw, caught by caller)
+ * 
+ * Future FSM Integration:
+ * - Could return {state: 'READY', data: {lat, lng, formattedAddress}} on success
+ * - Could return {state: 'ERROR', error: Error} on failure
+ * - Could handle errors internally and return consistent state objects
+ * 
  * @param {string} zipCode - The zip/postal code to geocode
  * @returns {Promise} - Resolves with location data or rejects with an error
  */
@@ -98,6 +149,15 @@ async function geocodeZipCode(zipCode) {
 
 /**
  * Get the default location
+ * 
+ * FSM State Pattern:
+ * - This is a synchronous function with no state transitions
+ * - Acts as a fallback when location services fail
+ * 
+ * Future FSM Integration:
+ * - Could return {state: 'READY', data: defaultLocation} for consistency
+ * - Could be part of a recovery action in the state machine
+ * 
  * @returns {Object} - The default location
  */
 function getDefaultLocation() {

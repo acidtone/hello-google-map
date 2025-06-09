@@ -108,7 +108,20 @@ window.initMap = function() {
 // Load the Google Maps API when the page loads
 loadGoogleMapsAPI();
 
-// Function to get postal code from coordinates using location service
+/**
+ * Function to get postal code from coordinates using location service
+ * 
+ * FSM State Pattern:
+ * - Entry State: IDLE
+ * - During Execution: FETCHING_POSTAL_CODE
+ * - Success Exit State: POSTAL_CODE_READY (implicit in return value)
+ * - Error Exit State: ERROR (handled internally, returns 'Error')
+ * 
+ * Future FSM Integration:
+ * - Could return state objects: {state: 'POSTAL_CODE_READY', data: postalCode}
+ * - Could propagate errors to caller with state information
+ * - Could emit events for state transitions
+ */
 async function fetchPostalCode(latitude, longitude) {
   try {
     // Use the location service to get the postal code
@@ -121,7 +134,22 @@ async function fetchPostalCode(latitude, longitude) {
 
 // getNearbyBusinesses function has been moved to businessService.js
 
-// Function to display location information
+/**
+ * Function to display location information
+ * 
+ * FSM State Pattern:
+ * - Entry State: IDLE
+ * - During Execution: DISPLAYING_LOCATION
+ * - Success Exit States:
+ *   - LOCATION_DISPLAYED (when all operations succeed)
+ *   - LOCATION_DISPLAYED_PARTIAL (when some operations fail but location is still displayed)
+ * - Error Exit State: LOCATION_ERROR (when critical operations fail)
+ * 
+ * Future FSM Integration:
+ * - Could return state objects: {state: 'LOCATION_DISPLAYED', data: {location, businesses}}
+ * - Could emit events for state transitions
+ * - Could handle partial success states more explicitly
+ */
 async function displayLocation(latitude, longitude, source = 'Geolocation API') {
   const locationSpan = document.querySelector('.user-location span');
   
@@ -333,14 +361,40 @@ function displayNearbyBusinesses(businesses, userLocation) {
 // This function is now directly imported from mapService.js
 // No need for a wrapper function anymore
 
-// Function to use default location
+/**
+ * Function to use default location
+ * 
+ * FSM State Pattern:
+ * - Entry State: ERROR (typically called after an error)
+ * - During Execution: USING_DEFAULT
+ * - Exit State: Transitions to displayLocation function
+ * 
+ * Future FSM Integration:
+ * - Could be a formal recovery action in the state machine
+ * - Could track state transitions explicitly
+ * - Could return state objects for consistency
+ */
 async function useDefaultLocation() {
   // Get default location from location service
   const defaultLocation = getDefaultLocation();
   await displayLocation(defaultLocation.lat, defaultLocation.lng, defaultLocation.name);
 }
 
-// Get the user's location using the location service
+/**
+ * Get the user's location using the location service
+ * 
+ * FSM State Pattern:
+ * - Entry State: IDLE
+ * - During Execution: FETCHING_LOCATION (implicit in the UI update)
+ * - Success Exit State: Transitions to displayLocation function
+ * - Error Exit State: ERROR (handled by error service)
+ *   - May transition to useDefaultLocation based on recovery action
+ * 
+ * Future FSM Integration:
+ * - Could track state explicitly: let locationState = 'FETCHING_LOCATION'
+ * - Could return state objects from async operations
+ * - Could emit events for state transitions
+ */
 function getUserLocation() {
   // Clear any existing markers (both user and business)
   clearAllMarkers();
@@ -366,7 +420,21 @@ function getUserLocation() {
     });
 }
 
-// Function to geocode a zip/postal code and update the map
+/**
+ * Function to geocode a zip/postal code and update the map
+ * 
+ * FSM State Pattern:
+ * - Entry State: IDLE
+ * - During Execution: SEARCHING_LOCATION
+ * - Success Exit State: Transitions to displayLocation function
+ * - Error Exit State: ERROR (handled by error service)
+ *   - May focus on input field based on recovery action
+ * 
+ * Future FSM Integration:
+ * - Could track state explicitly: let searchState = 'SEARCHING_LOCATION'
+ * - Could return state objects from async operations
+ * - Could emit events for state transitions
+ */
 async function searchByZipCode(zipCode) {
   const locationSpan = document.querySelector('.user-location span');
   
