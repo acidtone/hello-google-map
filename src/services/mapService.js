@@ -186,54 +186,71 @@ function addMarker(position, options = {}, markerType = 'business') {
  * Clear all markers from the map
  * 
  * FSM State Pattern:
- * - Entry State: READY (with markers)
+ * - Entry State: READY
  * - During Execution: UPDATING (clearing markers)
- * - Exit State: READY (without markers)
+ * - Success Exit State: READY (with no markers)
+ * - Error Exit State: ERROR (with explicit state transition)
  * 
  * Future FSM Integration:
  * - Could emit a 'MARKERS_CLEARED' event
- * - Could be triggered by state machine transitions
- * - Could return state information: {state: 'MARKERS_CLEARED', count: removedCount}
+ * - Could track marker state separately
+ * 
+ * @param {string} type - Type of markers to clear ('all', 'user', or 'business')
  */
-function clearMarkers() {
-  for (let i = 0; i < markers.length; i++) {
-    markers[i].setMap(null);
+function clearMarkers(type = 'all') {
+  if (!map) {
+    console.error('Map not initialized');
+    return;
   }
-  markers = [];
-  userMarkers = [];
-  businessMarkers = [];
+
+  // Set state to UPDATING before clearing markers
+  currentMapState = MapState.UPDATING;
+  
+  try {
+    let markersToRemove = [];
+    
+    if (type === 'all' || type === 'user') {
+      markersToRemove = [...markersToRemove, ...userMarkers];
+      userMarkers = [];
+    }
+    
+    if (type === 'all' || type === 'business') {
+      markersToRemove = [...markersToRemove, ...businessMarkers];
+      businessMarkers = [];
+    }
+    
+    // Clear all markers from the map
+    markersToRemove.forEach(marker => marker.setMap(null));
+    
+    // Reset the legacy markers array if clearing all
+    if (type === 'all') {
+      markers = [];
+    } else {
+      // Otherwise, filter out the removed markers
+      markers = markers.filter(marker => !markersToRemove.includes(marker));
+    }
+    
+    // Set state back to READY after markers are cleared
+    currentMapState = MapState.READY;
+  } catch (error) {
+    // Set state to ERROR if clearing markers fails
+    currentMapState = MapState.ERROR;
+    console.error('Failed to clear markers:', error);
+  }
 }
 
 /**
  * Clear only business markers from the map
  */
 function clearBusinessMarkers() {
-  // Remove business markers from the map
-  for (let i = 0; i < businessMarkers.length; i++) {
-    businessMarkers[i].setMap(null);
-  }
-  
-  // Also remove them from the legacy markers array
-  markers = markers.filter(marker => !businessMarkers.includes(marker));
-  
-  // Clear the business markers array
-  businessMarkers = [];
+  clearMarkers('business');
 }
 
 /**
  * Clear only user markers from the map
  */
 function clearUserMarkers() {
-  // Remove user markers from the map
-  for (let i = 0; i < userMarkers.length; i++) {
-    userMarkers[i].setMap(null);
-  }
-  
-  // Also remove them from the legacy markers array
-  markers = markers.filter(marker => !userMarkers.includes(marker));
-  
-  // Clear the user markers array
-  userMarkers = [];
+  clearMarkers('user');
 }
 
 /**
