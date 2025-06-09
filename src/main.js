@@ -40,6 +40,26 @@ import {
   RecoveryActions
 } from './services/errorService.js';
 
+// Google Maps API error handler
+window.gm_authFailure = function() {
+  const error = new Error('Google Maps API failed to load');
+  const errorInfo = handleError(error, 'maps_api');
+  
+  // Display error message in the map container
+  const mapElement = document.getElementById('map');
+  if (mapElement) {
+    mapElement.innerHTML = `<div class="error-message">${errorInfo.message}</div>`;
+  }
+  
+  // Also update the location span
+  const locationSpan = document.querySelector('.user-location span');
+  if (locationSpan) {
+    locationSpan.textContent = errorInfo.message;
+  }
+  
+  console.error('Google Maps API failed to load. Check your API key and network connection.');
+};
+
 // Map is now managed by the map service
 
 // Load Google Maps API with the API key from configuration
@@ -128,16 +148,24 @@ async function displayLocation(latitude, longitude, source = 'Geolocation API') 
       const context = apiError.message?.includes('postal code') ? 'postal_code' : 'business_search';
       const errorInfo = handleError(apiError, context);
       
-      // Log the error message but don't disrupt the UI too much
-      console.log(errorInfo.message);
-      
-      // Still show the map with user location, even if we couldn't get additional data
-      locationSpan.textContent = `Lat: ${Number(latitude).toFixed(6)}, Lng: ${Number(longitude).toFixed(6)} (${source})`;
+      // Take appropriate recovery action based on the recovery type
+      if (errorInfo.recovery === RecoveryActions.CONTINUE_PARTIAL) {
+        // Show the error message but continue with partial data
+        console.log(errorInfo.message);
+        
+        // Still show the map with user location, even if we couldn't get additional data
+        locationSpan.textContent = `Lat: ${Number(latitude).toFixed(6)}, Lng: ${Number(longitude).toFixed(6)} (${source})`;
+      }
     }
   } catch (error) {
     // Handle critical errors in the core map functionality
     const errorInfo = handleError(error, 'map_display');
     locationSpan.textContent = errorInfo.message;
+    
+    // Take appropriate recovery action based on the recovery type
+    if (errorInfo.recovery === RecoveryActions.NONE) {
+      console.error('Critical map display error with no recovery action available');
+    }
   }
 }
 

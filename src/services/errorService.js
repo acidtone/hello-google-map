@@ -10,13 +10,13 @@ const ErrorTypes = {
   GEOCODING_FAILED: 'geocoding_failed',
   POSTAL_CODE_FAILED: 'postal_code_failed',
   BUSINESS_SEARCH_FAILED: 'business_search_failed',
+  MAPS_API_FAILED: 'maps_api_failed',
   UNKNOWN: 'unknown_error'
 };
 
 // Recovery actions (potential state transitions in FSM)
 const RecoveryActions = {
   USE_DEFAULT_LOCATION: 'use_default_location',
-  RETRY: 'retry_operation',
   SHOW_FORM: 'show_manual_entry',
   CONTINUE_PARTIAL: 'continue_with_partial_data',
   NONE: 'no_action'
@@ -39,6 +39,8 @@ function categorizeError(error, context) {
   if (context === 'geocoding') return ErrorTypes.GEOCODING_FAILED;
   if (context === 'postal_code') return ErrorTypes.POSTAL_CODE_FAILED;
   if (context === 'business_search') return ErrorTypes.BUSINESS_SEARCH_FAILED;
+  if (context === 'maps_api') return ErrorTypes.MAPS_API_FAILED;
+  if (context === 'map_display') return ErrorTypes.UNKNOWN;
   
   return ErrorTypes.UNKNOWN;
 }
@@ -55,6 +57,7 @@ function getErrorMessage(errorType) {
     [ErrorTypes.GEOCODING_FAILED]: 'Could not find that location. Please try again.',
     [ErrorTypes.POSTAL_CODE_FAILED]: 'Showing location without postal code data.',
     [ErrorTypes.BUSINESS_SEARCH_FAILED]: 'Showing location without nearby businesses.',
+    [ErrorTypes.MAPS_API_FAILED]: 'Maps service is currently unavailable. Please try again later.',
     [ErrorTypes.UNKNOWN]: 'An error occurred. Please try again.'
   };
   
@@ -76,6 +79,8 @@ function getRecoveryAction(errorType) {
     case ErrorTypes.POSTAL_CODE_FAILED:
     case ErrorTypes.BUSINESS_SEARCH_FAILED:
       return RecoveryActions.CONTINUE_PARTIAL;
+    case ErrorTypes.MAPS_API_FAILED:
+      return RecoveryActions.NONE; // No automatic recovery for API loading failures
     default:
       return RecoveryActions.NONE;
   }
