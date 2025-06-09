@@ -36,9 +36,8 @@ import {
 } from './services/businessService.js';
 
 import {
-  ErrorTypes,
-  RecoveryActions,
-  handleError
+  handleError,
+  RecoveryActions
 } from './services/errorService.js';
 
 // Map is now managed by the map service
@@ -125,17 +124,20 @@ async function displayLocation(latitude, longitude, source = 'Geolocation API') 
       // Display businesses
       displayNearbyBusinesses(businesses, userLocation);
     } catch (apiError) {
-      // Handle API errors separately to maintain basic map functionality
-      // even if additional data can't be loaded
+      // Handle API errors in an FSM-friendly way while maintaining basic map functionality
       const context = apiError.message?.includes('postal code') ? 'postal_code' : 'business_search';
-      handleError(apiError, context, locationSpan);
+      const errorInfo = handleError(apiError, context);
+      
+      // Log the error message but don't disrupt the UI too much
+      console.log(errorInfo.message);
       
       // Still show the map with user location, even if we couldn't get additional data
       locationSpan.textContent = `Lat: ${Number(latitude).toFixed(6)}, Lng: ${Number(longitude).toFixed(6)} (${source})`;
     }
   } catch (error) {
-    // This would be a critical error in the core map functionality
-    handleError(error, 'map_display', locationSpan);
+    // Handle critical errors in the core map functionality
+    const errorInfo = handleError(error, 'map_display');
+    locationSpan.textContent = errorInfo.message;
   }
 }
 
@@ -308,11 +310,12 @@ function getUserLocation() {
       await displayLocation(position.lat, position.lng);
     })
     .catch(async (error) => {
-      // Use error service to handle the error
-      const recoveryAction = handleError(error, 'geolocation', locationSpan);
+      // Handle errors in an FSM-friendly way
+      const errorInfo = handleError(error, 'geolocation');
+      locationSpan.textContent = errorInfo.message;
       
-      // Take appropriate recovery action based on error type
-      if (recoveryAction === RecoveryActions.USE_DEFAULT_LOCATION) {
+      // Take appropriate recovery action based on the recovery type
+      if (errorInfo.recovery === RecoveryActions.USE_DEFAULT_LOCATION) {
         await useDefaultLocation();
       }
     });
@@ -334,11 +337,12 @@ async function searchByZipCode(zipCode) {
     // Display the location and update the map
     await displayLocation(locationData.lat, locationData.lng, `Zip/Postal Code: ${zipCode}`);
   } catch (error) {
-    // Use error service to handle the error
-    const recoveryAction = handleError(error, 'geocoding', locationSpan);
+    // Handle errors in an FSM-friendly way
+    const errorInfo = handleError(error, 'geocoding');
+    locationSpan.textContent = errorInfo.message;
     
-    // Take appropriate recovery action based on error type
-    if (recoveryAction === RecoveryActions.SHOW_FORM) {
+    // Take appropriate recovery action based on the recovery type
+    if (errorInfo.recovery === RecoveryActions.SHOW_FORM) {
       // Focus on the zip input to encourage the user to try again
       const zipInput = document.getElementById('zip-input');
       if (zipInput) {

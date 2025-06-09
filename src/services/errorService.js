@@ -1,49 +1,64 @@
 /**
  * Error Service Module
- * Handles error categorization, logging, user notification, and recovery strategies
+ * Lightweight error handling with FSM-like patterns
  */
 
-// Basic error categories - we can expand these as needed
+// Error types - can be expanded as needed
 const ErrorTypes = {
   LOCATION_PERMISSION: 'location_permission_denied',
   LOCATION_UNAVAILABLE: 'location_unavailable',
   GEOCODING_FAILED: 'geocoding_failed',
+  POSTAL_CODE_FAILED: 'postal_code_failed',
+  BUSINESS_SEARCH_FAILED: 'business_search_failed',
   UNKNOWN: 'unknown_error'
 };
 
-// Recovery actions that could become transitions in a future FSM
+// Recovery actions (potential state transitions in FSM)
 const RecoveryActions = {
   USE_DEFAULT_LOCATION: 'use_default_location',
   RETRY: 'retry_operation',
   SHOW_FORM: 'show_manual_entry',
+  CONTINUE_PARTIAL: 'continue_with_partial_data',
   NONE: 'no_action'
 };
 
 /**
- * Categorize an error based on its properties
+ * Categorize an error based on its properties and context
  * @param {Error} error - The error object
  * @param {string} context - Context where the error occurred
  * @returns {string} - The categorized error type
  */
 function categorizeError(error, context) {
-  if (context === 'geolocation' && error.code === 1) {
-    return ErrorTypes.LOCATION_PERMISSION;
-  } else if (context === 'geolocation' && (error.code === 2 || error.code === 3)) {
-    return ErrorTypes.LOCATION_UNAVAILABLE;
-  } else if (context === 'geocoding') {
-    return ErrorTypes.GEOCODING_FAILED;
+  // Geolocation errors
+  if (context === 'geolocation') {
+    if (error.code === 1) return ErrorTypes.LOCATION_PERMISSION;
+    if (error.code === 2 || error.code === 3) return ErrorTypes.LOCATION_UNAVAILABLE;
   }
+  
+  // API errors
+  if (context === 'geocoding') return ErrorTypes.GEOCODING_FAILED;
+  if (context === 'postal_code') return ErrorTypes.POSTAL_CODE_FAILED;
+  if (context === 'business_search') return ErrorTypes.BUSINESS_SEARCH_FAILED;
+  
   return ErrorTypes.UNKNOWN;
 }
 
 /**
- * Log error details for debugging
- * @param {Error} error - The error object
+ * Get appropriate message for an error type
  * @param {string} errorType - Categorized error type
- * @param {string} context - Context where the error occurred
+ * @returns {string} - User-friendly error message
  */
-function logError(error, errorType, context) {
-  console.error(`[${context}] Error (${errorType}):`, error);
+function getErrorMessage(errorType) {
+  const messages = {
+    [ErrorTypes.LOCATION_PERMISSION]: 'Location access denied. Using default location.',
+    [ErrorTypes.LOCATION_UNAVAILABLE]: 'Could not determine your location. Using default location.',
+    [ErrorTypes.GEOCODING_FAILED]: 'Could not find that location. Please try again.',
+    [ErrorTypes.POSTAL_CODE_FAILED]: 'Showing location without postal code data.',
+    [ErrorTypes.BUSINESS_SEARCH_FAILED]: 'Showing location without nearby businesses.',
+    [ErrorTypes.UNKNOWN]: 'An error occurred. Please try again.'
+  };
+  
+  return messages[errorType] || messages[ErrorTypes.UNKNOWN];
 }
 
 /**
@@ -58,52 +73,35 @@ function getRecoveryAction(errorType) {
       return RecoveryActions.USE_DEFAULT_LOCATION;
     case ErrorTypes.GEOCODING_FAILED:
       return RecoveryActions.SHOW_FORM;
+    case ErrorTypes.POSTAL_CODE_FAILED:
+    case ErrorTypes.BUSINESS_SEARCH_FAILED:
+      return RecoveryActions.CONTINUE_PARTIAL;
     default:
       return RecoveryActions.NONE;
   }
 }
 
 /**
- * Display an error message to the user
- * @param {string} errorType - Categorized error type
- * @param {HTMLElement} container - Container element for the error message
- */
-function showErrorMessage(errorType, container) {
-  const messages = {
-    [ErrorTypes.LOCATION_PERMISSION]: 'Location access was denied. Using default location instead.',
-    [ErrorTypes.LOCATION_UNAVAILABLE]: 'Could not determine your location. Using default location instead.',
-    [ErrorTypes.GEOCODING_FAILED]: 'Could not find the specified location. Please try a different search.',
-    [ErrorTypes.UNKNOWN]: 'An error occurred. Please try again.'
-  };
-  
-  if (container) {
-    container.textContent = messages[errorType] || messages[ErrorTypes.UNKNOWN];
-    container.classList.add('error-message');
-  }
-}
-
-/**
- * Main error handler function
+ * Main error handler function - FSM-friendly
  * @param {Error} error - The error object
  * @param {string} context - Context where the error occurred
- * @param {HTMLElement} container - Container for error messages (optional)
- * @returns {string} - Recovery action to take
+ * @returns {Object} - Error information with type, message, and recovery action
  */
-function handleError(error, context, container = null) {
+function handleError(error, context) {
   const errorType = categorizeError(error, context);
-  logError(error, errorType, context);
+  const message = getErrorMessage(errorType);
+  const recovery = getRecoveryAction(errorType);
   
-  if (container) {
-    showErrorMessage(errorType, container);
-  }
+  // Log for debugging
+  console.error(`[${context}] ${message}`, error);
   
-  return getRecoveryAction(errorType);
+  // Return structured error info for FSM-like handling
+  return { type: errorType, message, recovery };
 }
 
-// Export public functions
+// Export public functions and constants
 export {
   ErrorTypes,
   RecoveryActions,
-  handleError,
-  showErrorMessage
+  handleError
 };
