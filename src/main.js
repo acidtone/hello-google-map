@@ -35,6 +35,12 @@ import {
   setupBusinessClickInteraction
 } from './services/businessService.js';
 
+import {
+  ErrorTypes,
+  RecoveryActions,
+  handleError
+} from './services/errorService.js';
+
 // Map is now managed by the map service
 
 // Load Google Maps API with the API key from configuration
@@ -105,20 +111,31 @@ async function displayLocation(latitude, longitude, source = 'Geolocation API') 
     const postalCodePromise = fetchPostalCode(latitude, longitude);
     const businessesPromise = getNearbyBusinesses(latitude, longitude);
     
-    // Wait for both API calls to complete in parallel
-    const [postalCode, businesses] = await Promise.all([
-      postalCodePromise,
-      businessesPromise
-    ]);
-    
-    // Update UI with results
-    locationSpan.textContent = `Lat: ${Number(latitude).toFixed(6)}, Lng: ${Number(longitude).toFixed(6)} (${postalCode}) (${source})`;
-    console.log(`Location from ${source}: Lat: ${latitude}, Lng: ${longitude}, Postal Code: ${postalCode}`);
-    
-    // Display businesses
-    displayNearbyBusinesses(businesses, userLocation);
+    try {
+      // Wait for both API calls to complete in parallel
+      const [postalCode, businesses] = await Promise.all([
+        postalCodePromise,
+        businessesPromise
+      ]);
+      
+      // Update UI with results
+      locationSpan.textContent = `Lat: ${Number(latitude).toFixed(6)}, Lng: ${Number(longitude).toFixed(6)} (${postalCode}) (${source})`;
+      console.log(`Location from ${source}: Lat: ${latitude}, Lng: ${longitude}, Postal Code: ${postalCode}`);
+      
+      // Display businesses
+      displayNearbyBusinesses(businesses, userLocation);
+    } catch (apiError) {
+      // Handle API errors separately to maintain basic map functionality
+      // even if additional data can't be loaded
+      const context = apiError.message?.includes('postal code') ? 'postal_code' : 'business_search';
+      handleError(apiError, context, locationSpan);
+      
+      // Still show the map with user location, even if we couldn't get additional data
+      locationSpan.textContent = `Lat: ${Number(latitude).toFixed(6)}, Lng: ${Number(longitude).toFixed(6)} (${source})`;
+    }
   } catch (error) {
-    console.error('Error updating with location data:', error);
+    // This would be a critical error in the core map functionality
+    handleError(error, 'map_display', locationSpan);
   }
 }
 
@@ -291,9 +308,13 @@ function getUserLocation() {
       await displayLocation(position.lat, position.lng);
     })
     .catch(async (error) => {
-      // Handle errors
-      console.log('Error getting location:', error.message);
-      await useDefaultLocation();
+      // Use error service to handle the error
+      const recoveryAction = handleError(error, 'geolocation', locationSpan);
+      
+      // Take appropriate recovery action based on error type
+      if (recoveryAction === RecoveryActions.USE_DEFAULT_LOCATION) {
+        await useDefaultLocation();
+      }
     });
 }
 
@@ -313,8 +334,17 @@ async function searchByZipCode(zipCode) {
     // Display the location and update the map
     await displayLocation(locationData.lat, locationData.lng, `Zip/Postal Code: ${zipCode}`);
   } catch (error) {
-    locationSpan.textContent = `Could not find location for ${zipCode}`;
-    console.error('Error geocoding zip code:', error);
+    // Use error service to handle the error
+    const recoveryAction = handleError(error, 'geocoding', locationSpan);
+    
+    // Take appropriate recovery action based on error type
+    if (recoveryAction === RecoveryActions.SHOW_FORM) {
+      // Focus on the zip input to encourage the user to try again
+      const zipInput = document.getElementById('zip-input');
+      if (zipInput) {
+        zipInput.focus();
+      }
+    }
   }
 }
 
