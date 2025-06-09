@@ -29,7 +29,9 @@ import {
 
 import {
   getNearbyBusinesses,
-  createBusinessMarkerIcons
+  createBusinessMarkerIcons,
+  setupMarkerListItemInteraction,
+  setupBusinessClickInteraction
 } from './services/businessService.js';
 
 // Map is now managed by the map service
@@ -236,46 +238,9 @@ function displayNearbyBusinesses(businesses, userLocation) {
         business: business
       };
       
-      // Add click event to marker - go to website
-      if (business.website) {
-        marker.addListener('click', () => {
-          window.open(business.website, '_blank');
-        });
-      }
-      
-      // Hover interactions between list items and markers
-      listItem.addEventListener('mouseenter', () => {
-        // Highlight the marker by changing its icon
-        marker.setIcon(highlightedIcon);
-        // Add highlighted class to list item
-        listItem.classList.add('highlighted');
-      });
-      
-      listItem.addEventListener('mouseleave', () => {
-        // Restore default icon
-        marker.setIcon(defaultIcon);
-        // Remove highlighted class from list item
-        listItem.classList.remove('highlighted');
-      });
-      
-      // Also add hover effect for marker to highlight list item
-      marker.addListener('mouseover', () => {
-        // Highlight the marker
-        marker.setIcon(highlightedIcon);
-        // Add highlighted class to list item
-        listItem.classList.add('highlighted');
-        // Force a repaint to ensure the style is applied
-        listItem.style.display = 'none';
-        listItem.offsetHeight; // This triggers a reflow
-        listItem.style.display = '';
-      });
-      
-      marker.addListener('mouseout', () => {
-        // Restore default icon
-        marker.setIcon(defaultIcon);
-        // Remove highlighted class from list item
-        listItem.classList.remove('highlighted');
-      });
+      // Setup marker and list item interactions using the business service
+      setupMarkerListItemInteraction(markerInfo);
+      setupBusinessClickInteraction(markerInfo);
     }
     
     // Add to list

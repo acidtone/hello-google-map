@@ -1,6 +1,6 @@
 /**
  * Business Service Module
- * Handles fetching and managing business data
+ * Handles fetching and managing business data and marker interactions
  */
 
 import { FOURSQUARE_API_KEY } from '../config.js';
@@ -75,8 +75,83 @@ function createBusinessMarkerIcons() {
   };
 }
 
+/**
+ * Setup two-way hover interactions between a marker and list item
+ * @param {Object} markerInfo - Object containing marker, listItem, and icon information
+ */
+function setupMarkerListItemInteraction(markerInfo) {
+  const { marker, listItem, defaultIcon, highlightedIcon } = markerInfo;
+  
+  // List item hover effects
+  listItem.addEventListener('mouseenter', () => {
+    highlightMarkerAndListItem(markerInfo, true);
+  });
+  
+  listItem.addEventListener('mouseleave', () => {
+    highlightMarkerAndListItem(markerInfo, false);
+  });
+  
+  // Marker hover effects
+  marker.addListener('mouseover', () => {
+    highlightMarkerAndListItem(markerInfo, true);
+  });
+  
+  marker.addListener('mouseout', () => {
+    highlightMarkerAndListItem(markerInfo, false);
+  });
+}
+
+/**
+ * Highlight or unhighlight a marker and its corresponding list item
+ * @param {Object} markerInfo - Object containing marker, listItem, and icon information
+ * @param {boolean} highlight - Whether to highlight or unhighlight
+ */
+function highlightMarkerAndListItem(markerInfo, highlight) {
+  const { marker, listItem, defaultIcon, highlightedIcon } = markerInfo;
+  
+  if (highlight) {
+    // Highlight marker
+    marker.setIcon(highlightedIcon);
+    // Highlight list item
+    listItem.classList.add('highlighted');
+  } else {
+    // Unhighlight marker
+    marker.setIcon(defaultIcon);
+    // Unhighlight list item
+    listItem.classList.remove('highlighted');
+  }
+}
+
+/**
+ * Setup click interaction for a business marker and list item
+ * @param {Object} markerInfo - Object containing marker, listItem, and business information
+ */
+function setupBusinessClickInteraction(markerInfo) {
+  const { marker, listItem, business } = markerInfo;
+  
+  // Only setup click interactions if there's a website
+  if (business.website) {
+    // Marker click opens website
+    marker.addListener('click', () => {
+      window.open(business.website, '_blank');
+    });
+    
+    // List item click opens website (except when clicking on an actual link)
+    listItem.style.cursor = 'pointer';
+    listItem.addEventListener('click', (e) => {
+      // Check if the click was on an anchor tag to avoid double-opening
+      if (e.target.tagName.toLowerCase() !== 'a') {
+        window.open(business.website, '_blank');
+      }
+    });
+  }
+}
+
 // Export business service functions
 export {
   getNearbyBusinesses,
-  createBusinessMarkerIcons
+  createBusinessMarkerIcons,
+  setupMarkerListItemInteraction,
+  setupBusinessClickInteraction,
+  highlightMarkerAndListItem
 };
