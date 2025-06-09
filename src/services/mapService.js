@@ -18,12 +18,27 @@
 
 import { GOOGLE_MAPS_API_KEY, MAP_CONFIG, MAPS_API_CONFIG } from '../config.js';
 
+/**
+ * Map state constants
+ * These represent the possible states of the map service
+ */
+const MapState = {
+  UNINITIALIZED: 'UNINITIALIZED',  // Initial state, map not yet created
+  INITIALIZING: 'INITIALIZING',    // Map creation in progress
+  READY: 'READY',                  // Map successfully created and ready for operations
+  ERROR: 'ERROR',                  // Error occurred during map operations
+  UPDATING: 'UPDATING'             // Map is being updated (markers, bounds, etc.)
+};
+
 // Private variables for the module
 let map = null;
 let markers = []; // Legacy array for backward compatibility
 let userMarkers = []; // Array to store user location markers
 let businessMarkers = []; // Array to store business markers
 let activeInfoWindow = null;
+
+// Track the current state of the map service
+let currentMapState = MapState.UNINITIALIZED;
 
 /**
  * Initialize the map with the given element ID
@@ -67,6 +82,18 @@ function initializeMap(elementId) {
  */
 function getMap() {
   return map;
+}
+
+/**
+ * Get the current state of the map service
+ * 
+ * This function provides explicit state information that can be used
+ * by other modules to make decisions based on the map's current state.
+ * 
+ * @returns {string} - The current state of the map service
+ */
+function getMapState() {
+  return currentMapState;
 }
 
 /**
@@ -279,17 +306,28 @@ function getMarkers() {
 
 // Export public functions
 export {
+  // Map state constants
+  MapState,
+  
+  // Core map functions
   initializeMap,
   getMap,
+  getMapState,
+  
+  // Marker management
   addMarker,
   clearMarkers as clearAllMarkers,
   clearBusinessMarkers,
   clearUserMarkers,
+  getMarkers,
+  
+  // Map view management
   setCenter,
   createBounds,
   fitBounds,
+  
+  // Info window management
   createInfoWindow,
   openInfoWindow,
-  closeActiveInfoWindow,
-  getMarkers
+  closeActiveInfoWindow
 };
