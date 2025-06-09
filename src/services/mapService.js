@@ -58,11 +58,30 @@ let currentMapState = MapState.UNINITIALIZED;
  * @returns {google.maps.Map} - The initialized map instance
  */
 function initializeMap(elementId) {
+  // Set state to INITIALIZING at the beginning
+  currentMapState = MapState.INITIALIZING;
+  
   if (!map) {
-    map = new google.maps.Map(document.getElementById(elementId), {
-      center: { lat: MAP_CONFIG.defaultCenter.lat, lng: MAP_CONFIG.defaultCenter.lng },
-      zoom: MAP_CONFIG.zoom,
-    });
+    try {
+      const mapElement = document.getElementById(elementId);
+      
+      // Check if the element exists
+      if (!mapElement) {
+        throw new Error(`Map element with ID "${elementId}" not found`);
+      }
+      
+      map = new google.maps.Map(mapElement, {
+        center: { lat: MAP_CONFIG.defaultCenter.lat, lng: MAP_CONFIG.defaultCenter.lng },
+        zoom: MAP_CONFIG.zoom,
+      });
+      
+      // Set state to READY after map is created
+      currentMapState = MapState.READY;
+    } catch (error) {
+      // Set state to ERROR if initialization fails
+      currentMapState = MapState.ERROR;
+      console.error('Map initialization failed:', error);
+    }
   }
   return map;
 }
