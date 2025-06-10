@@ -25,7 +25,9 @@ import {
   getCurrentLocation,
   getPostalCode,
   geocodeZipCode,
-  getDefaultLocation
+  getDefaultLocation,
+  LocationState,
+  getLocationState
 } from './services/locationService.js';
 
 import {
@@ -175,7 +177,7 @@ async function displayLocation(latitude, longitude, source = 'Geolocation API') 
     const postalCodePromise = fetchPostalCode(latitude, longitude);
     const businessesPromise = getNearbyBusinesses(latitude, longitude);
     
-    try {
+    try { 
       // Wait for both API calls to complete in parallel
       const [postalCode, businesses] = await Promise.all([
         postalCodePromise,
@@ -385,15 +387,13 @@ async function useDefaultLocation() {
  * 
  * FSM State Pattern:
  * - Entry State: IDLE
- * - During Execution: FETCHING_LOCATION (implicit in the UI update)
+ * - During Execution: FETCHING_LOCATION (now explicit via LocationState.FETCHING)
  * - Success Exit State: Transitions to displayLocation function
- * - Error Exit State: ERROR (handled by error service)
+ * - Error Exit State: ERROR (explicit via LocationState.ERROR)
  *   - May transition to useDefaultLocation based on recovery action
  * 
- * Future FSM Integration:
- * - Could track state explicitly: let locationState = 'FETCHING_LOCATION'
- * - Could return state objects from async operations
- * - Could emit events for state transitions
+ * This function now checks the location state to ensure it matches the expected
+ * state at each step of the process.
  */
 function getUserLocation() {
   // Clear any existing markers (both user and business)
@@ -405,17 +405,36 @@ function getUserLocation() {
   // Use the location service to get the current location
   getCurrentLocation()
     .then(async (position) => {
-      // Display the coordinates using our display function
-      await displayLocation(position.lat, position.lng);
+      // Check the location state to ensure we're in READY state
+      if (getLocationState() === LocationState.READY) {
+        // Display the coordinates using our display function
+        await displayLocation(position.lat, position.lng);
+      } else {
+        console.warn(`Unexpected location state: ${getLocationState()}`); 
+        // Still proceed with the position we received
+        await displayLocation(position.lat, position.lng);
+      }
     })
     .catch(async (error) => {
-      // Handle errors in an FSM-friendly way
-      const errorInfo = handleError(error, 'geolocation');
-      locationSpan.textContent = errorInfo.message;
-      
-      // Take appropriate recovery action based on the recovery type
-      if (errorInfo.recovery === RecoveryActions.USE_DEFAULT_LOCATION) {
-        await useDefaultLocation();
+      // Verify we're in ERROR state as expected
+      if (getLocationState() === LocationState.ERROR) {
+        // Handle errors in an FSM-friendly way
+        const errorInfo = handleError(error, 'geolocation');
+        locationSpan.textContent = errorInfo.message;
+        
+        // Take appropriate recovery action based on the recovery type
+        if (errorInfo.recovery === RecoveryActions.USE_DEFAULT_LOCATION) {
+          await useDefaultLocation();
+        }
+      } else {
+        console.error(`Unexpected location state during error: ${getLocationState()}`);
+        // Handle the error anyway
+        const errorInfo = handleError(error, 'geolocation');
+        locationSpan.textContent = errorInfo.message;
+        
+        if (errorInfo.recovery === RecoveryActions.USE_DEFAULT_LOCATION) {
+          await useDefaultLocation();
+        }
       }
     });
 }
