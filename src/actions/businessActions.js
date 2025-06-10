@@ -108,3 +108,74 @@ export function clearBusinessData() {
     data: null
   };
 }
+
+/**
+ * Process business data for display
+ * 
+ * This is a pure function that processes business data before it's displayed.
+ * It can perform filtering, sorting, enrichment, or other transformations.
+ * It can be triggered by an FSM state transition like:
+ * BUSINESS_READY -> BUSINESS_PROCESSED
+ * 
+ * @param {Array} businesses - Array of business objects from Foursquare API
+ * @param {Object} options - Processing options
+ * @param {number} [options.limit=4] - Maximum number of businesses to include
+ * @param {string} [options.sortBy='distance'] - Sort criteria ('distance', 'rating', etc.)
+ * @returns {Object} - Result object with success and processed data
+ */
+export function processBusinessData(businesses, options = {}) {
+  try {
+    // Default options
+    const {
+      limit = 4,
+      sortBy = 'distance'
+    } = options;
+    
+    // Validate input
+    if (!Array.isArray(businesses)) {
+      return {
+        success: false,
+        error: new Error('Invalid business data: expected an array')
+      };
+    }
+    
+    // Create a copy to avoid mutating the original data
+    let processedBusinesses = [...businesses];
+    
+    // Apply sorting if needed (Foursquare already sorts by distance by default)
+    if (sortBy !== 'distance' && processedBusinesses.length > 0) {
+      // Additional sorting options could be implemented here
+      // For now, we'll keep the default Foursquare sorting
+    }
+    
+    // Apply limit
+    if (processedBusinesses.length > limit) {
+      processedBusinesses = processedBusinesses.slice(0, limit);
+    }
+    
+    // Enrich business data with additional properties if needed
+    processedBusinesses = processedBusinesses.map(business => {
+      // Create a copy of the business to avoid mutating the original
+      const enriched = { ...business };
+      
+      // Add a formatted address if not already present
+      if (business.location && !business.location.formatted_address) {
+        const { address, locality, region, postcode } = business.location;
+        const addressParts = [address, locality, region, postcode].filter(Boolean);
+        enriched.location.formatted_address = addressParts.join(', ');
+      }
+      
+      return enriched;
+    });
+    
+    return {
+      success: true,
+      data: processedBusinesses
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error
+    };
+  }
+}

@@ -30,14 +30,15 @@ import {
   getLocationState
 } from './services/locationService.js';
 
-import {
-  getNearbyBusinesses,
-  createBusinessMarkerIcons,
+import { 
+  getNearbyBusinesses, 
+  createBusinessMarkerIcons, 
   setupMarkerListItemInteraction,
   setupBusinessClickInteraction,
   BusinessState,
   getBusinessState
 } from './services/businessService.js';
+import { processBusinessData } from './actions/businessActions.js';
 
 import {
   handleError,
@@ -496,17 +497,34 @@ export function updateBusinessUI(data) {
  * - During Execution: Uses BusinessState.READY state data
  * - Success Exit State: Businesses displayed (implicit in UI update)
  * - Error Exit State: No businesses found or error (handled internally)
+ * 
+ * Now uses the processBusinessData action function to prepare business data
+ * before updating the UI.
  */
 function displayNearbyBusinesses(businesses, userLocation) {
   // Check the current business state before displaying
   const currentState = getBusinessState();
   
-  // Update the UI using the extracted function
-  updateBusinessUI({
-    businesses: businesses,
-    userLocation: userLocation,
-    state: currentState
-  });
+  // Process the business data using the pure action function
+  const processResult = processBusinessData(businesses);
+  
+  // Update the UI based on the processing result
+  if (processResult.success) {
+    // Update the UI with processed business data
+    updateBusinessUI({
+      businesses: processResult.data,
+      userLocation: userLocation,
+      state: currentState
+    });
+  } else {
+    // Handle processing error
+    updateBusinessUI({
+      businesses: businesses, // Fall back to original data
+      userLocation: userLocation,
+      state: currentState,
+      error: processResult.error
+    });
+  }
 }
 
 /**
