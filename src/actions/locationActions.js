@@ -14,7 +14,7 @@
  * }
  */
 
-import { DEFAULT_LOCATION } from '../config.js';
+import { DEFAULT_LOCATION, GOOGLE_MAPS_API_KEY } from '../config.js';
 
 /**
  * Fetch user's geolocation data using browser's Geolocation API
@@ -84,6 +84,71 @@ export function fetchDefaultLocation() {
         source: 'Default Configuration'
       }
     };
+  } catch (error) {
+    return {
+      success: false,
+      error
+    };
+  }
+}
+
+/**
+ * Geocode an address (including zip/postal codes) to coordinates
+ * 
+ * This is a pure function that converts an address string to geographic coordinates
+ * using the Google Maps Geocoding API. It can be triggered by an FSM state transition like:
+ * LOCATION_IDLE -> LOCATION_GEOCODING -> LOCATION_READY/LOCATION_ERROR
+ * 
+ * @param {string} address - The address to geocode (can be a zip/postal code)
+ * @param {string} apiKey - Google Maps API key (optional, uses config by default)
+ * @returns {Promise<Object>} - Result object with success, data, and error properties
+ */
+export async function geocodeAddress(address, apiKey = GOOGLE_MAPS_API_KEY) {
+  try {
+    // Validate input
+    if (!address) {
+      return {
+        success: false,
+        error: new Error('Address is required')
+      };
+    }
+    
+    if (!apiKey) {
+      return {
+        success: false,
+        error: new Error('Google Maps API key is required')
+      };
+    }
+    
+    // Make the geocoding API request
+    const response = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`
+    );
+    
+    const data = await response.json();
+    
+    // Process the response
+    if (data.status === 'OK' && data.results && data.results.length > 0) {
+      const result = data.results[0];
+      const location = result.geometry.location;
+      
+      return {
+        success: true,
+        data: {
+          lat: location.lat,
+          lng: location.lng,
+          formattedAddress: result.formatted_address,
+          addressComponents: result.address_components,
+          placeId: result.place_id
+        }
+      };
+    } else {
+      return {
+        success: false,
+        error: new Error(`Geocoding error: ${data.status}`),
+        errorDetails: data
+      };
+    }
   } catch (error) {
     return {
       success: false,

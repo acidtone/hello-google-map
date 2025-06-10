@@ -28,7 +28,7 @@
  */
 
 import { GOOGLE_MAPS_API_KEY } from '../config.js';
-import { fetchGeolocationData, fetchDefaultLocation } from '../actions/locationActions.js';
+import { fetchGeolocationData, fetchDefaultLocation, geocodeAddress } from '../actions/locationActions.js';
 
 /**
  * Location state constants
@@ -166,10 +166,8 @@ async function getPostalCode(latitude, longitude) {
  * - Success Exit State: READY (explicit state transition)
  * - Error Exit State: ERROR (explicit state transition)
  * 
- * Future FSM Integration:
- * - Could return {state: 'READY', data: {lat, lng, formattedAddress}} on success
- * - Could return {state: 'ERROR', error: Error} on failure
- * - Could handle errors internally and return consistent state objects
+ * Now uses the geocodeAddress action function while maintaining
+ * state management in this service.
  * 
  * @param {string} zipCode - The zip/postal code to geocode
  * @returns {Promise} - Resolves with location data or rejects with an error
@@ -179,25 +177,21 @@ async function geocodeZipCode(zipCode) {
   currentLocationState = LocationState.GEOCODING;
   
   try {
-    const response = await fetch(
-      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(zipCode)}&key=${GOOGLE_MAPS_API_KEY}`
-    );
+    // Use the geocodeAddress action function
+    const result = await geocodeAddress(zipCode);
     
-    const data = await response.json();
-    
-    if (data.status === 'OK' && data.results && data.results.length > 0) {
-      const location = data.results[0].geometry.location;
+    if (result.success) {
       // Set state to READY on success
       currentLocationState = LocationState.READY;
       return {
-        lat: location.lat,
-        lng: location.lng,
-        formattedAddress: data.results[0].formatted_address
+        lat: result.data.lat,
+        lng: result.data.lng,
+        formattedAddress: result.data.formattedAddress
       };
     } else {
       // Set state to ERROR for API error
       currentLocationState = LocationState.ERROR;
-      throw new Error(`Geocoding error: ${data.status}`);
+      throw result.error;
     }
   } catch (error) {
     // Set state to ERROR on exception
