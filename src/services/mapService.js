@@ -18,7 +18,7 @@
 
 import { GOOGLE_MAPS_API_KEY, MAP_CONFIG, MAPS_API_CONFIG } from '../config.js';
 import { clearBusinessData } from '../actions/businessActions.js';
-import { initializeGoogleMap, createMapMarker, updateMapView } from '../actions/mapActions.js';
+import { initializeGoogleMap, createMapMarker, updateMapView, createMapBounds, fitMapBounds, clearMapMarkers } from '../actions/mapActions.js';
 
 /**
  * Map state constants
@@ -195,9 +195,8 @@ function addMarker(position, options = {}, markerType = 'business') {
  * - Success Exit State: READY (with no markers)
  * - Error Exit State: ERROR (with explicit state transition)
  * 
- * Future FSM Integration:
- * - Could emit a 'MARKERS_CLEARED' event
- * - Could track marker state separately
+ * Now uses the clearMapMarkers action function while maintaining
+ * state management in this service.
  * 
  * @param {string} type - Type of markers to clear ('all', 'user', or 'business')
  */
@@ -218,21 +217,32 @@ function clearMarkers(type = 'all') {
       businessMarkers = [];
     }
     
-    // Clear all markers from the map
-    markersToRemove.forEach(marker => marker.setMap(null));
+    // Use the clearMapMarkers action function
+    const result = clearMapMarkers(markersToRemove);
     
-    // Reset the legacy markers array if clearing all
-    if (type === 'all') {
-      markers = [];
+    if (result.success) {
+      // Log any markers that failed to clear
+      if (result.data.failedCount > 0) {
+        console.warn(`Failed to clear ${result.data.failedCount} markers`);
+      }
+      
+      // Reset the legacy markers array if clearing all
+      if (type === 'all') {
+        markers = [];
+      } else {
+        // Otherwise, filter out the removed markers
+        markers = markers.filter(marker => !markersToRemove.includes(marker));
+      }
+      
+      // Set state back to READY after markers are cleared
+      currentMapState = MapState.READY;
     } else {
-      // Otherwise, filter out the removed markers
-      markers = markers.filter(marker => !markersToRemove.includes(marker));
+      // Set state to ERROR if clearing markers fails
+      currentMapState = MapState.ERROR;
+      console.error('Failed to clear markers:', result.error);
     }
-    
-    // Set state back to READY after markers are cleared
-    currentMapState = MapState.READY;
   } catch (error) {
-    // Set state to ERROR if clearing markers fails
+    // Set state to ERROR if any exception occurs
     currentMapState = MapState.ERROR;
     console.error('Failed to clear markers:', error);
   }
@@ -313,36 +323,74 @@ function setCenter(position, zoom = null) {
  * - This is a utility function with no state transitions
  * - Prepares data for state transitions in other functions
  * 
- * Future FSM Integration:
- * - Could be part of a map view state management system
- * - Could track bounds as part of application state
+ * Now uses the createMapBounds action function while maintaining
+ * the same return type for backward compatibility.
  * 
  * @param {Array} positions - Array of positions to include in bounds
  * @returns {google.maps.LatLngBounds} - The created bounds
  */
 function createBounds(positions = []) {
-  const bounds = new google.maps.LatLngBounds();
+  // Use the createMapBounds action function
+  const result = createMapBounds(positions);
   
-  positions.forEach(position => {
-    if (position) {
-      bounds.extend(position);
-    }
-  });
-  
-  return bounds;
+  if (result.success) {
+    return result.data.bounds;
+  } else {
+    // Fallback to original implementation if action function fails
+    console.error('Failed to create bounds:', result.error);
+    const bounds = new google.maps.LatLngBounds();
+    
+    positions.forEach(position => {
+      if (position) {
+        bounds.extend(position);
+      }
+    });
+    
+    return bounds;
+  }
 }
 
 /**
  * Fit the map to the given bounds
+ * 
+ * FSM State Pattern:
+ * - Entry State: READY
+ * - During Execution: UPDATING (changing view)
+ * - Success Exit State: READY (with view adjusted to bounds)
+ * - Error Exit State: ERROR (with explicit state transition)
+ * 
+ * Now uses the fitMapBounds action function while maintaining
+ * state management in this service.
+ * 
  * @param {google.maps.LatLngBounds} bounds - The bounds to fit
+ * @param {Object} options - Additional options for fitting bounds
  */
-function fitBounds(bounds) {
+function fitBounds(bounds, options = {}) {
   if (!map) {
     console.error('Map not initialized');
     return;
   }
-
-  map.fitBounds(bounds);
+  
+  // Set state to UPDATING before changing the map view
+  currentMapState = MapState.UPDATING;
+  
+  try {
+    // Use the fitMapBounds action function
+    const result = fitMapBounds(map, bounds, options);
+    
+    if (result.success) {
+      // Set state back to READY after view is updated
+      currentMapState = MapState.READY;
+    } else {
+      // Set state to ERROR if updating view fails
+      currentMapState = MapState.ERROR;
+      console.error('Failed to fit bounds:', result.error);
+    }
+  } catch (error) {
+    // Set state to ERROR if any exception occurs
+    currentMapState = MapState.ERROR;
+    console.error('Failed to fit bounds:', error);
+  }
 }
 
 /**

@@ -187,3 +187,168 @@ export function updateMapView(map, position, zoom = null) {
     };
   }
 }
+
+/**
+ * Create a Google Maps bounds object from positions
+ * 
+ * This is a pure function that creates a bounds object without modifying global state.
+ * It can be used as part of FSM state transitions in map view management.
+ * 
+ * @param {Array} positions - Array of positions to include in bounds
+ * @returns {Object} - Result object with success, data, and error properties
+ */
+export function createMapBounds(positions = []) {
+  try {
+    // Validate input
+    if (!Array.isArray(positions)) {
+      return {
+        success: false,
+        error: new Error('Positions must be an array')
+      };
+    }
+    
+    // Create bounds object
+    const bounds = new google.maps.LatLngBounds();
+    let validPositionsCount = 0;
+    
+    // Add each valid position to the bounds
+    positions.forEach(position => {
+      if (position && (position.lat !== undefined && position.lng !== undefined)) {
+        bounds.extend(position);
+        validPositionsCount++;
+      }
+    });
+    
+    return {
+      success: true,
+      data: {
+        bounds,
+        isEmpty: validPositionsCount === 0,
+        positionsCount: validPositionsCount
+      }
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error
+    };
+  }
+}
+
+/**
+ * Fit map to bounds
+ * 
+ * This is a pure function that adjusts a map view to fit given bounds without modifying global state.
+ * It can be triggered by an FSM state transition like:
+ * MAP_READY -> MAP_UPDATING -> MAP_READY
+ * 
+ * @param {google.maps.Map} map - The map instance to update
+ * @param {google.maps.LatLngBounds} bounds - The bounds to fit
+ * @param {Object} options - Additional options for fitting bounds (padding, etc)
+ * @returns {Object} - Result object with success, data, and error properties
+ */
+export function fitMapBounds(map, bounds, options = {}) {
+  try {
+    // Validate input
+    if (!map) {
+      return {
+        success: false,
+        error: new Error('Map instance is required')
+      };
+    }
+    
+    if (!bounds) {
+      return {
+        success: false,
+        error: new Error('Bounds object is required')
+      };
+    }
+    
+    // Check if bounds is empty (no positions added)
+    if (bounds.isEmpty()) {
+      return {
+        success: false,
+        error: new Error('Cannot fit to empty bounds')
+      };
+    }
+    
+    // Store the previous view state
+    const previousCenter = map.getCenter();
+    const previousZoom = map.getZoom();
+    
+    // Fit the map to the bounds
+    map.fitBounds(bounds, options.padding);
+    
+    return {
+      success: true,
+      data: {
+        previousCenter,
+        previousZoom,
+        currentCenter: map.getCenter(),
+        currentZoom: map.getZoom(),
+        bounds
+      }
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error
+    };
+  }
+}
+
+/**
+ * Clear markers from the map
+ * 
+ * This is a pure function that removes markers from the map without modifying global collections.
+ * It can be triggered by an FSM state transition like:
+ * MAP_READY -> MAP_UPDATING -> MAP_READY
+ * 
+ * @param {Array} markers - Array of markers to clear
+ * @returns {Object} - Result object with success, data, and error properties
+ */
+export function clearMapMarkers(markers = []) {
+  try {
+    // Validate input
+    if (!Array.isArray(markers)) {
+      return {
+        success: false,
+        error: new Error('Markers must be an array')
+      };
+    }
+    
+    // Track markers that were successfully cleared
+    const clearedMarkers = [];
+    const failedMarkers = [];
+    
+    // Remove each marker from the map
+    markers.forEach(marker => {
+      try {
+        if (marker && typeof marker.setMap === 'function') {
+          marker.setMap(null);
+          clearedMarkers.push(marker);
+        } else {
+          failedMarkers.push(marker);
+        }
+      } catch (err) {
+        failedMarkers.push(marker);
+      }
+    });
+    
+    return {
+      success: true,
+      data: {
+        totalMarkers: markers.length,
+        clearedCount: clearedMarkers.length,
+        failedCount: failedMarkers.length,
+        clearedMarkers,
+        failedMarkers
+      }
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error
+    };
+  }
+}
