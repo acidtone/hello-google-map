@@ -14,6 +14,17 @@
  * 
  * State transitions are now handled explicitly through state variable updates.
  * Future FSM integration could build on these explicit states.
+ * 
+ * Note on Parallel Operations:
+ * This service tracks a single state for all location operations.
+ * When multiple operations occur in parallel (e.g., fetching postal code and businesses),
+ * the state represents the most significant ongoing operation with this priority:
+ * 1. User location fetching (highest priority)
+ * 2. Business data geocoding
+ * 3. Postal code geocoding (lowest priority)
+ * 
+ * This simplified approach is appropriate for the scale of this application and
+ * prioritizes tracking critical operations over comprehensive state management.
  */
 
 import { GOOGLE_MAPS_API_KEY, DEFAULT_LOCATION } from '../config.js';
