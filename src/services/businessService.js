@@ -16,9 +16,9 @@
  * This enables better debugging, error handling, and integration with other services.
  */
 
-import { FOURSQUARE_API_KEY } from '../config.js';
 import { handleError } from './errorService.js';
 import { updateInteractionUI } from '../main.js';
+import { fetchBusinessData } from '../actions/businessActions.js';
 
 /**
  * Business state constants
@@ -58,6 +58,9 @@ function getBusinessState() {
  *   - READY (explicit via BusinessState.READY when no businesses found but API call succeeded)
  * - Error Exit State: ERROR (explicit via BusinessState.ERROR)
  * 
+ * Now uses the fetchBusinessData action function for the API call,
+ * while maintaining state management in this service.
+ * 
  * @param {number} latitude - Latitude coordinate
  * @param {number} longitude - Longitude coordinate
  * @param {number} limit - Maximum number of businesses to return
@@ -68,47 +71,24 @@ async function getNearbyBusinesses(latitude, longitude, limit = 4) {
     // Set state to SEARCHING at the start of the operation
     currentBusinessState = BusinessState.SEARCHING;
     
-    // Validate Foursquare API key configuration
-    if (!FOURSQUARE_API_KEY || FOURSQUARE_API_KEY === 'PLACEHOLDER_API_KEY') {
+    // Use the fetchBusinessData action function to get business data
+    const result = await fetchBusinessData(
+      { latitude, longitude },
+      limit
+    );
+    
+    // Handle the result based on success/failure
+    if (result.success) {
+      // Set state to READY regardless of whether businesses were found
+      // (empty results is a valid state, not an error)
+      currentBusinessState = BusinessState.READY;
+      return result.data;
+    } else {
+      // Set state to ERROR and throw the error for consistent error handling
       currentBusinessState = BusinessState.ERROR;
-      throw new Error('Foursquare API key is missing. Please check your .env file.');
+      throw result.error;
     }
-    
-    // Foursquare API endpoint for nearby places
-    const url = 'https://api.foursquare.com/v3/places/search';
-    
-    // Query parameters
-    const params = new URLSearchParams({
-      ll: `${latitude},${longitude}`,
-      radius: 1000, // 1000 meters radius
-      limit: limit,
-      categories: '13000,13065,17000,17062', // Food, Restaurants, Shops, etc.
-      sort: 'DISTANCE',
-      fields: 'fsq_id,name,location,geocodes,website,tel,categories'
-    });
-    
-    // Make the API request
-    const response = await fetch(`${url}?${params}`, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': FOURSQUARE_API_KEY
-      }
-    });
-    
-    if (!response.ok) {
-      currentBusinessState = BusinessState.ERROR;
-      throw new Error(`Foursquare API error: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    const results = data.results || [];
-    
-    // Set state to READY regardless of whether businesses were found
-    // (empty results is a valid state, not an error)
-    currentBusinessState = BusinessState.READY;
-    
-    return results;
+
   } catch (error) {
     // Set state to ERROR
     currentBusinessState = BusinessState.ERROR;
