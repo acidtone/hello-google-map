@@ -115,21 +115,32 @@ loadGoogleMapsAPI();
  * 
  * FSM State Pattern:
  * - Entry State: IDLE
- * - During Execution: FETCHING_POSTAL_CODE
- * - Success Exit State: POSTAL_CODE_READY (implicit in return value)
- * - Error Exit State: ERROR (handled internally, returns 'Error')
+ * - During Execution: GEOCODING (explicit via LocationState.GEOCODING)
+ * - Success Exit State: READY (explicit via LocationState.READY)
+ * - Error Exit State: ERROR (explicit via LocationState.ERROR)
  * 
- * Future FSM Integration:
- * - Could return state objects: {state: 'POSTAL_CODE_READY', data: postalCode}
- * - Could propagate errors to caller with state information
- * - Could emit events for state transitions
+ * This function now checks the location state to ensure it matches the expected
+ * state at each step of the process.
  */
 async function fetchPostalCode(latitude, longitude) {
   try {
     // Use the location service to get the postal code
-    return await getPostalCode(latitude, longitude);
+    const postalCode = await getPostalCode(latitude, longitude);
+    
+    // Verify we're in the expected state after the operation
+    if (getLocationState() !== LocationState.READY) {
+      console.warn(`Unexpected location state after getPostalCode: ${getLocationState()}`);
+    }
+    
+    return postalCode;
   } catch (error) {
     console.error('Error getting postal code:', error);
+    
+    // Verify we're in ERROR state as expected
+    if (getLocationState() !== LocationState.ERROR) {
+      console.error(`Unexpected location state during postal code error: ${getLocationState()}`);
+    }
+    
     return 'Error';
   }
 }
