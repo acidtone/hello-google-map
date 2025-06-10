@@ -12,11 +12,38 @@
  * - READY: Location data successfully retrieved
  * - ERROR: Error occurred during location operations
  * 
- * State transitions are currently handled implicitly through Promise resolution/rejection.
- * Future FSM integration could make these transitions explicit.
+ * State transitions are now handled explicitly through state variable updates.
+ * Future FSM integration could build on these explicit states.
  */
 
 import { GOOGLE_MAPS_API_KEY, DEFAULT_LOCATION } from '../config.js';
+
+/**
+ * Location state constants
+ * These represent the possible states of the location service
+ */
+const LocationState = {
+  IDLE: 'IDLE',           // Initial state, no location operations in progress
+  FETCHING: 'FETCHING',   // Actively retrieving user location
+  GEOCODING: 'GEOCODING', // Converting coordinates to address or vice versa
+  READY: 'READY',         // Location data successfully retrieved
+  ERROR: 'ERROR'          // Error occurred during location operations
+};
+
+// Track the current state of the location service
+let currentLocationState = LocationState.IDLE;
+
+/**
+ * Get the current state of the location service
+ * 
+ * This function provides explicit state information that can be used
+ * by other modules to make decisions based on the location service's current state.
+ * 
+ * @returns {string} - The current state of the location service
+ */
+function getLocationState() {
+  return currentLocationState;
+}
 
 /**
  * Get the user's current location using the Geolocation API
@@ -24,8 +51,8 @@ import { GOOGLE_MAPS_API_KEY, DEFAULT_LOCATION } from '../config.js';
  * FSM State Pattern:
  * - Entry State: IDLE
  * - During Execution: FETCHING
- * - Success Exit State: READY (implicit in Promise resolution)
- * - Error Exit State: ERROR (implicit in Promise rejection)
+ * - Success Exit State: READY (explicit state transition)
+ * - Error Exit State: ERROR (explicit state transition)
  * 
  * Future FSM Integration:
  * - Could return state object {state: 'READY', data: {lat, lng}} on success
@@ -35,20 +62,29 @@ import { GOOGLE_MAPS_API_KEY, DEFAULT_LOCATION } from '../config.js';
  * @returns {Promise} - Resolves with the user's location or rejects with an error
  */
 function getCurrentLocation() {
+  // Set state to FETCHING at the beginning
+  currentLocationState = LocationState.FETCHING;
+  
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
+      // Set state to ERROR if geolocation is not supported
+      currentLocationState = LocationState.ERROR;
       reject(new Error('Geolocation is not supported by this browser.'));
       return;
     }
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        // Set state to READY on success
+        currentLocationState = LocationState.READY;
         resolve({
           lat: position.coords.latitude,
           lng: position.coords.longitude
         });
       },
       (error) => {
+        // Set state to ERROR on failure
+        currentLocationState = LocationState.ERROR;
         reject(error);
       }
     );
@@ -63,7 +99,7 @@ function getCurrentLocation() {
  * - During Execution: GEOCODING
  * - Success Exit States: 
  *   - READY (when postal code found)
- *   - PARTIAL (when API succeeds but no postal code found, returns 'Unknown')
+ *   - READY (when API succeeds but no postal code found, returns 'Unknown')
  * - Error Exit State: ERROR (handled internally, returns 'Unknown')
  * 
  * Future FSM Integration:
@@ -76,6 +112,9 @@ function getCurrentLocation() {
  * @returns {Promise<string>} - Resolves with the postal code or 'Unknown'
  */
 async function getPostalCode(latitude, longitude) {
+  // Set state to GEOCODING at the beginning
+  currentLocationState = LocationState.GEOCODING;
+  
   try {
     const response = await fetch(
       `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_MAPS_API_KEY}&channel=Nissan_US`
@@ -90,18 +129,26 @@ async function getPostalCode(latitude, longitude) {
         for (const component of result.address_components) {
           if (component.types.includes('postal_code')) {
             postalCode = component.long_name;
+            // Set state to READY when postal code is found
+            currentLocationState = LocationState.READY;
             return postalCode;
           }
         }
       }
       
+      // Set state to READY even if postal code is 'Unknown'
+      currentLocationState = LocationState.READY;
       return postalCode;
     } else {
       console.warn('Geocoding API response status:', data.status);
+      // Set state to ERROR for API error
+      currentLocationState = LocationState.ERROR;
       return 'Unknown';
     }
   } catch (error) {
     console.error('Error getting postal code:', error);
+    // Set state to ERROR on exception
+    currentLocationState = LocationState.ERROR;
     return 'Unknown';
   }
 }
@@ -112,8 +159,8 @@ async function getPostalCode(latitude, longitude) {
  * FSM State Pattern:
  * - Entry State: IDLE
  * - During Execution: GEOCODING
- * - Success Exit State: READY (implicit in Promise resolution)
- * - Error Exit State: ERROR (explicit throw, caught by caller)
+ * - Success Exit State: READY (explicit state transition)
+ * - Error Exit State: ERROR (explicit state transition)
  * 
  * Future FSM Integration:
  * - Could return {state: 'READY', data: {lat, lng, formattedAddress}} on success
@@ -124,6 +171,9 @@ async function getPostalCode(latitude, longitude) {
  * @returns {Promise} - Resolves with location data or rejects with an error
  */
 async function geocodeZipCode(zipCode) {
+  // Set state to GEOCODING at the beginning
+  currentLocationState = LocationState.GEOCODING;
+  
   try {
     const response = await fetch(
       `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(zipCode)}&key=${GOOGLE_MAPS_API_KEY}`
@@ -133,15 +183,21 @@ async function geocodeZipCode(zipCode) {
     
     if (data.status === 'OK' && data.results && data.results.length > 0) {
       const location = data.results[0].geometry.location;
+      // Set state to READY on success
+      currentLocationState = LocationState.READY;
       return {
         lat: location.lat,
         lng: location.lng,
         formattedAddress: data.results[0].formatted_address
       };
     } else {
+      // Set state to ERROR for API error
+      currentLocationState = LocationState.ERROR;
       throw new Error(`Geocoding error: ${data.status}`);
     }
   } catch (error) {
+    // Set state to ERROR on exception
+    currentLocationState = LocationState.ERROR;
     console.error('Error geocoding zip code:', error);
     throw error;
   }
@@ -151,16 +207,20 @@ async function geocodeZipCode(zipCode) {
  * Get the default location
  * 
  * FSM State Pattern:
- * - This is a synchronous function with no state transitions
+ * - This is a synchronous function that doesn't change the location state
  * - Acts as a fallback when location services fail
+ * - Typically called when state is already ERROR to provide recovery
  * 
  * Future FSM Integration:
- * - Could return {state: 'READY', data: defaultLocation} for consistency
- * - Could be part of a recovery action in the state machine
+ * - Could set state to READY with a 'fallback' flag
+ * - Could return {state: 'READY', source: 'default', data: defaultLocation}
+ * - Could be part of a formal recovery action in the state machine
  * 
  * @returns {Object} - The default location
  */
 function getDefaultLocation() {
+  // Note: We don't change state here as this is typically called
+  // after an error has already occurred and state is already set to ERROR
   return {
     lat: DEFAULT_LOCATION.lat,
     lng: DEFAULT_LOCATION.lng,
@@ -170,6 +230,11 @@ function getDefaultLocation() {
 
 // Export public methods
 export {
+  // State constants and management
+  LocationState,
+  getLocationState,
+  
+  // Location functions
   getCurrentLocation,
   getPostalCode,
   geocodeZipCode,
