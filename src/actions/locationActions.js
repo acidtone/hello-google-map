@@ -156,3 +156,90 @@ export async function geocodeAddress(address, apiKey = GOOGLE_MAPS_API_KEY) {
     };
   }
 }
+
+/**
+ * Reverse geocode coordinates to address components
+ * 
+ * This is a pure function that converts geographic coordinates to address components
+ * using the Google Maps Geocoding API. It can be triggered by an FSM state transition like:
+ * LOCATION_IDLE -> LOCATION_GEOCODING -> LOCATION_READY/LOCATION_ERROR
+ * 
+ * @param {number} latitude - The latitude coordinate
+ * @param {number} longitude - The longitude coordinate
+ * @param {string} apiKey - Google Maps API key (optional, uses config by default)
+ * @returns {Promise<Object>} - Result object with success, data, and error properties
+ */
+export async function reverseGeocode(latitude, longitude, apiKey = GOOGLE_MAPS_API_KEY) {
+  try {
+    // Validate input
+    if (latitude === undefined || longitude === undefined) {
+      return {
+        success: false,
+        error: new Error('Latitude and longitude are required')
+      };
+    }
+    
+    if (!apiKey) {
+      return {
+        success: false,
+        error: new Error('Google Maps API key is required')
+      };
+    }
+    
+    // Make the reverse geocoding API request
+    const response = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${apiKey}`
+    );
+    
+    const data = await response.json();
+    
+    // Process the response
+    if (data.status === 'OK' && data.results && data.results.length > 0) {
+      // Extract all address components
+      const addressComponents = {};
+      const postalCode = { found: false, value: 'Unknown' };
+      
+      // Process all results to find postal code and other components
+      for (const result of data.results) {
+        for (const component of result.address_components) {
+          // Store each component by its type
+          component.types.forEach(type => {
+            if (!addressComponents[type]) {
+              addressComponents[type] = component.long_name;
+            }
+            
+            // Special handling for postal code
+            if (type === 'postal_code' && !postalCode.found) {
+              postalCode.found = true;
+              postalCode.value = component.long_name;
+            }
+          });
+        }
+        
+        // If we found a postal code, no need to check further results
+        if (postalCode.found) break;
+      }
+      
+      return {
+        success: true,
+        data: {
+          formattedAddress: data.results[0].formatted_address,
+          addressComponents,
+          postalCode: postalCode.value,
+          placeId: data.results[0].place_id
+        }
+      };
+    } else {
+      return {
+        success: false,
+        error: new Error(`Reverse geocoding error: ${data.status}`),
+        errorDetails: data
+      };
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error
+    };
+  }
+}

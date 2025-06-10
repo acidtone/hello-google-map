@@ -28,7 +28,7 @@
  */
 
 import { GOOGLE_MAPS_API_KEY } from '../config.js';
-import { fetchGeolocationData, fetchDefaultLocation, geocodeAddress } from '../actions/locationActions.js';
+import { fetchGeolocationData, fetchDefaultLocation, geocodeAddress, reverseGeocode } from '../actions/locationActions.js';
 
 /**
  * Location state constants
@@ -106,10 +106,8 @@ async function getCurrentLocation() {
  *   - READY (when API succeeds but no postal code found, returns 'Unknown')
  * - Error Exit State: ERROR (handled internally, returns 'Unknown')
  * 
- * Future FSM Integration:
- * - Could return {state: 'READY', data: postalCode} on success
- * - Could return {state: 'PARTIAL', data: 'Unknown'} when no postal code found
- * - Could return {state: 'ERROR', error: Error} and let caller handle errors
+ * Now uses the reverseGeocode action function while maintaining
+ * state management in this service.
  * 
  * @param {number} latitude - The latitude
  * @param {number} longitude - The longitude
@@ -120,31 +118,17 @@ async function getPostalCode(latitude, longitude) {
   currentLocationState = LocationState.GEOCODING;
   
   try {
-    const response = await fetch(
-      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_MAPS_API_KEY}&channel=Nissan_US`
-    );
-    const data = await response.json();
+    // Use the reverseGeocode action function
+    const result = await reverseGeocode(latitude, longitude);
     
-    if (data.status === 'OK') {
-      // Extract postal code from the results
-      let postalCode = 'Unknown';
-      
-      for (const result of data.results) {
-        for (const component of result.address_components) {
-          if (component.types.includes('postal_code')) {
-            postalCode = component.long_name;
-            // Set state to READY when postal code is found
-            currentLocationState = LocationState.READY;
-            return postalCode;
-          }
-        }
-      }
-      
-      // Set state to READY even if postal code is 'Unknown'
+    if (result.success) {
+      // Set state to READY when API call succeeds
       currentLocationState = LocationState.READY;
-      return postalCode;
+      
+      // The postal code is already extracted in the action function
+      return result.data.postalCode;
     } else {
-      console.warn('Geocoding API response status:', data.status);
+      console.warn('Reverse geocoding error:', result.error);
       // Set state to ERROR for API error
       currentLocationState = LocationState.ERROR;
       return 'Unknown';
