@@ -34,7 +34,9 @@ import {
   getNearbyBusinesses,
   createBusinessMarkerIcons,
   setupMarkerListItemInteraction,
-  setupBusinessClickInteraction
+  setupBusinessClickInteraction,
+  BusinessState,
+  getBusinessState
 } from './services/businessService.js';
 
 import {
@@ -227,8 +229,18 @@ async function displayLocation(latitude, longitude, source = 'Geolocation API') 
   }
 }
 
-// Function to display nearby businesses in the UI and add markers to the map
+/**
+ * Function to display nearby businesses in the UI and add markers to the map
+ * 
+ * FSM State Pattern:
+ * - Entry State: Typically after a successful location operation (LocationState.READY)
+ * - During Execution: Uses BusinessState.READY state data
+ * - Success Exit State: Businesses displayed (implicit in UI update)
+ * - Error Exit State: No businesses found or error (handled internally)
+ */
 function displayNearbyBusinesses(businesses, userLocation) {
+  // Check the current business state before displaying
+  const currentState = getBusinessState();
   // Only clear business markers, preserving user location marker
   clearBusinessMarkers();
   
@@ -248,6 +260,15 @@ function displayNearbyBusinesses(businesses, userLocation) {
 
   // Clear any existing businesses
   businessesContainer.innerHTML = '<h2>Nearby Businesses</h2>';
+  
+  // If in error state, show error message
+  if (currentState === BusinessState.ERROR) {
+    const errorMessage = document.createElement('p');
+    errorMessage.className = 'error-message';
+    errorMessage.textContent = 'There was an error searching for businesses. Please try again.';
+    businessesContainer.appendChild(errorMessage);
+    return;
+  }
   
   // If no businesses found
   if (!businesses || businesses.length === 0) {
