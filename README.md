@@ -57,6 +57,17 @@ The application follows a unified process flow with multiple entry points that c
 │                   │     │                   │    │
 └─────────┬─────────┘     └─────────┬─────────┘    │
           │                         │              │
+          │  ┌─────────────────────────────────────────────┐
+          │  │                                             │
+          │  │  Location Fetching Steps:                   │
+          │  │  1. Check geolocation API availability      │
+          │  │  2. Request user permission                 │
+          │  │  3. Retrieve coordinates                    │
+          │  │  4. Handle timeout/errors                   │
+          │  │  5. Format location data                    │
+          │  │                                             │
+          │  └─────────────────────────────────────────────┘
+          │
           │                         ▼              │
           │               ┌───────────────────┐    │
           │               │                   │    │
