@@ -378,18 +378,23 @@ function displayNearbyBusinesses(businesses, userLocation) {
  * Function to use default location
  * 
  * FSM State Pattern:
- * - Entry State: ERROR (typically called after an error)
- * - During Execution: USING_DEFAULT
+ * - Entry State: Typically ERROR (called after a location error)
+ * - During Execution: Uses default location without changing state
  * - Exit State: Transitions to displayLocation function
  * 
- * Future FSM Integration:
- * - Could be a formal recovery action in the state machine
- * - Could track state transitions explicitly
- * - Could return state objects for consistency
+ * This function uses the default location as a fallback but doesn't
+ * change the location state since it's typically called after an error.
  */
 async function useDefaultLocation() {
   // Get default location from location service
   const defaultLocation = getDefaultLocation();
+  
+  // Log the current state for debugging purposes
+  console.log(`Using default location while in state: ${getLocationState()}`);
+  
+  // We don't change the state here since getDefaultLocation doesn't change state
+  // This preserves the ERROR state which is important context for why we're using a default
+  
   await displayLocation(defaultLocation.lat, defaultLocation.lng, defaultLocation.name);
 }
 
