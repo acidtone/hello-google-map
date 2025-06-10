@@ -18,6 +18,7 @@
 
 import { GOOGLE_MAPS_API_KEY, MAP_CONFIG, MAPS_API_CONFIG } from '../config.js';
 import { clearBusinessData } from '../actions/businessActions.js';
+import { initializeGoogleMap } from '../actions/mapActions.js';
 
 /**
  * Map state constants
@@ -48,12 +49,10 @@ let currentMapState = MapState.UNINITIALIZED;
  * - Entry State: UNINITIALIZED
  * - During Execution: INITIALIZING
  * - Success Exit State: READY (map instance created)
- * - Error Exit State: ERROR (implicit in console.error)
+ * - Error Exit State: ERROR (explicit state transition)
  * 
- * Future FSM Integration:
- * - Could track state explicitly: let mapState = 'INITIALIZING'
- * - Could return {state: 'READY', map: mapInstance} on success
- * - Could throw errors with state information for FSM error handling
+ * Now uses the initializeGoogleMap action function for map creation,
+ * while maintaining state management in this service.
  * 
  * @param {string} elementId - The ID of the DOM element to contain the map
  * @returns {google.maps.Map} - The initialized map instance
@@ -64,22 +63,22 @@ function initializeMap(elementId) {
   
   if (!map) {
     try {
-      const mapElement = document.getElementById(elementId);
+      // Use the initializeGoogleMap action function
+      const result = initializeGoogleMap(elementId);
       
-      // Check if the element exists
-      if (!mapElement) {
-        throw new Error(`Map element with ID "${elementId}" not found`);
+      if (result.success) {
+        // Store the map instance
+        map = result.data.map;
+        
+        // Set state to READY after map is created
+        currentMapState = MapState.READY;
+      } else {
+        // Set state to ERROR if initialization fails
+        currentMapState = MapState.ERROR;
+        console.error('Map initialization failed:', result.error);
       }
-      
-      map = new google.maps.Map(mapElement, {
-        center: { lat: MAP_CONFIG.defaultCenter.lat, lng: MAP_CONFIG.defaultCenter.lng },
-        zoom: MAP_CONFIG.zoom,
-      });
-      
-      // Set state to READY after map is created
-      currentMapState = MapState.READY;
     } catch (error) {
-      // Set state to ERROR if initialization fails
+      // Set state to ERROR if any exception occurs
       currentMapState = MapState.ERROR;
       console.error('Map initialization failed:', error);
     }
