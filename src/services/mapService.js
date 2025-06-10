@@ -198,11 +198,6 @@ function addMarker(position, options = {}, markerType = 'business') {
  * @param {string} type - Type of markers to clear ('all', 'user', or 'business')
  */
 function clearMarkers(type = 'all') {
-  if (!map) {
-    console.error('Map not initialized');
-    return;
-  }
-
   // Set state to UPDATING before clearing markers
   currentMapState = MapState.UPDATING;
   

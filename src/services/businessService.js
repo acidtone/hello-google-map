@@ -66,7 +66,6 @@ async function getNearbyBusinesses(latitude, longitude, limit = 4) {
   try {
     // Set state to SEARCHING at the start of the operation
     currentBusinessState = BusinessState.SEARCHING;
-    console.log(`Business state: ${getBusinessState()} - Searching for businesses near [${latitude}, ${longitude}]`);
     
     // Validate Foursquare API key configuration
     if (!FOURSQUARE_API_KEY || FOURSQUARE_API_KEY === 'PLACEHOLDER_API_KEY') {
@@ -107,13 +106,11 @@ async function getNearbyBusinesses(latitude, longitude, limit = 4) {
     // Set state to READY regardless of whether businesses were found
     // (empty results is a valid state, not an error)
     currentBusinessState = BusinessState.READY;
-    console.log(`Business state: ${getBusinessState()} - Found ${results.length} businesses`);
     
     return results;
   } catch (error) {
     // Set state to ERROR
     currentBusinessState = BusinessState.ERROR;
-    console.log(`Business state: ${getBusinessState()} - Error: ${error.message}`);
     
     // Use FSM-compatible error handling
     const errorInfo = handleError(error, 'business_search');
@@ -214,16 +211,14 @@ function setupMarkerListItemInteraction(markerInfo) {
  * - Implements UI state transitions between:
  *   - NOT_HIGHLIGHTED (default state)
  *   - HIGHLIGHTED (active state)
- * 
- * Future FSM Integration:
- * - Could be triggered by state machine transitions
- * - Could emit UI state change events
+ * - Works with the BusinessState.INTERACTING state
  * 
  * @param {Object} markerInfo - Object containing marker, listItem, and icon information
  * @param {boolean} highlight - Whether to highlight or unhighlight
  */
 function highlightMarkerAndListItem(markerInfo, highlight) {
   const { marker, listItem, defaultIcon, highlightedIcon } = markerInfo;
+  
   
   if (highlight) {
     // Highlight marker
@@ -243,11 +238,8 @@ function highlightMarkerAndListItem(markerInfo, highlight) {
  * 
  * FSM State Pattern:
  * - Sets up event listeners that trigger actions based on user interaction
- * - Implicit state transition: VIEWING -> NAVIGATING (to external website)
- * 
- * Future FSM Integration:
- * - Could emit events: {action: 'NAVIGATE_TO_WEBSITE', business: businessId}
- * - Could be controlled by a central state machine
+ * - Explicit state transition: IDLE/READY -> INTERACTING -> IDLE/READY
+ * - Uses BusinessState.INTERACTING during click interactions
  * 
  * @param {Object} markerInfo - Object containing marker, listItem, and business information
  */
@@ -258,7 +250,18 @@ function setupBusinessClickInteraction(markerInfo) {
   if (business.website) {
     // Marker click opens website
     marker.addListener('click', () => {
-      window.open(business.website, '_blank');
+      // Track interaction state
+      if (currentBusinessState !== BusinessState.ERROR) {
+        const previousState = currentBusinessState;
+        currentBusinessState = BusinessState.INTERACTING;
+        
+        window.open(business.website, '_blank');
+        
+        // Restore previous state
+        currentBusinessState = previousState;
+      } else {
+        window.open(business.website, '_blank');
+      }
     });
     
     // List item click opens website (except when clicking on an actual link)
@@ -266,7 +269,18 @@ function setupBusinessClickInteraction(markerInfo) {
     listItem.addEventListener('click', (e) => {
       // Check if the click was on an anchor tag to avoid double-opening
       if (e.target.tagName.toLowerCase() !== 'a') {
-        window.open(business.website, '_blank');
+        // Track interaction state
+        if (currentBusinessState !== BusinessState.ERROR) {
+          const previousState = currentBusinessState;
+          currentBusinessState = BusinessState.INTERACTING;
+          
+          window.open(business.website, '_blank');
+          
+          // Restore previous state
+          currentBusinessState = previousState;
+        } else {
+          window.open(business.website, '_blank');
+        }
       }
     });
   }
