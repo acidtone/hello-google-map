@@ -3,37 +3,59 @@
  * Handles fetching and managing business data and marker interactions
  * 
  * FSM State Patterns:
- * This module implements loose FSM patterns for future integration with a state machine.
+ * This module implements explicit FSM patterns for future integration with a state machine.
  * 
- * Potential Business States:
+ * Business States:
  * - IDLE: Initial state, no business operations in progress
  * - SEARCHING: Actively searching for nearby businesses
  * - READY: Business data successfully retrieved
  * - ERROR: Error occurred during business operations
  * - INTERACTING: User is interacting with business markers/listings
  * 
- * State transitions are currently handled implicitly through Promise resolution/rejection.
- * Future FSM integration could make these transitions explicit.
+ * State transitions are now handled explicitly through the currentBusinessState variable.
+ * This enables better debugging, error handling, and integration with other services.
  */
 
 import { FOURSQUARE_API_KEY } from '../config.js';
 import { handleError } from './errorService.js';
 
 /**
+ * Business state constants
+ * These represent the possible states of the business service
+ */
+const BusinessState = {
+  IDLE: 'IDLE',           // Initial state, no business operations in progress
+  SEARCHING: 'SEARCHING', // Actively searching for nearby businesses
+  READY: 'READY',         // Business data successfully retrieved
+  ERROR: 'ERROR',         // Error occurred during business operations
+  INTERACTING: 'INTERACTING' // User is interacting with business markers/listings
+};
+
+// Track the current state of the business service
+let currentBusinessState = BusinessState.IDLE;
+
+/**
+ * Get the current state of the business service
+ * 
+ * This function provides explicit state information that can be used
+ * by other modules to make decisions based on the business service's current state.
+ * 
+ * @returns {string} - The current state of the business service
+ */
+function getBusinessState() {
+  return currentBusinessState;
+}
+
+/**
  * Get nearby businesses using Foursquare Places API
  * 
  * FSM State Pattern:
  * - Entry State: IDLE
- * - During Execution: SEARCHING
+ * - During Execution: SEARCHING (explicit via BusinessState.SEARCHING)
  * - Success Exit States: 
- *   - READY (when businesses found)
- *   - EMPTY (when no businesses found but API call succeeded)
- * - Error Exit State: ERROR (handled internally, returns empty array)
- * 
- * Future FSM Integration:
- * - Could return {state: 'READY', data: businessArray} on success
- * - Could return {state: 'ERROR', error: errorInfo} on failure
- * - Could emit state transition events for external subscribers
+ *   - READY (explicit via BusinessState.READY when businesses found)
+ *   - READY (explicit via BusinessState.READY when no businesses found but API call succeeded)
+ * - Error Exit State: ERROR (explicit via BusinessState.ERROR)
  * 
  * @param {number} latitude - Latitude coordinate
  * @param {number} longitude - Longitude coordinate
@@ -42,8 +64,13 @@ import { handleError } from './errorService.js';
  */
 async function getNearbyBusinesses(latitude, longitude, limit = 4) {
   try {
+    // Set state to SEARCHING at the start of the operation
+    currentBusinessState = BusinessState.SEARCHING;
+    console.log(`Business state: ${getBusinessState()} - Searching for businesses near [${latitude}, ${longitude}]`);
+    
     // Validate Foursquare API key configuration
     if (!FOURSQUARE_API_KEY || FOURSQUARE_API_KEY === 'PLACEHOLDER_API_KEY') {
+      currentBusinessState = BusinessState.ERROR;
       throw new Error('Foursquare API key is missing. Please check your .env file.');
     }
     
@@ -70,12 +97,24 @@ async function getNearbyBusinesses(latitude, longitude, limit = 4) {
     });
     
     if (!response.ok) {
+      currentBusinessState = BusinessState.ERROR;
       throw new Error(`Foursquare API error: ${response.status}`);
     }
     
     const data = await response.json();
-    return data.results || [];
+    const results = data.results || [];
+    
+    // Set state to READY regardless of whether businesses were found
+    // (empty results is a valid state, not an error)
+    currentBusinessState = BusinessState.READY;
+    console.log(`Business state: ${getBusinessState()} - Found ${results.length} businesses`);
+    
+    return results;
   } catch (error) {
+    // Set state to ERROR
+    currentBusinessState = BusinessState.ERROR;
+    console.log(`Business state: ${getBusinessState()} - Error: ${error.message}`);
+    
     // Use FSM-compatible error handling
     const errorInfo = handleError(error, 'business_search');
     console.error('Error fetching nearby businesses:', error, errorInfo);
@@ -123,12 +162,8 @@ function createBusinessMarkerIcons() {
  * 
  * FSM State Pattern:
  * - Sets up event listeners that trigger UI state transitions:
- *   - IDLE -> HOVERING -> IDLE
- * - These micro-states are currently handled implicitly through DOM events
- * 
- * Future FSM Integration:
- * - Could emit state change events: {uiState: 'MARKER_HOVER', id: markerId}
- * - Could subscribe to external state changes
+ *   - IDLE/READY -> INTERACTING -> IDLE/READY
+ * - Now uses explicit BusinessState.INTERACTING state
  * 
  * @param {Object} markerInfo - Object containing marker, listItem, and icon information
  */
@@ -137,7 +172,16 @@ function setupMarkerListItemInteraction(markerInfo) {
   
   // List item hover effects
   listItem.addEventListener('mouseenter', () => {
-    highlightMarkerAndListItem(markerInfo, true);
+    // Only change state if we're not already in an error state
+    if (currentBusinessState !== BusinessState.ERROR) {
+      const previousState = currentBusinessState;
+      currentBusinessState = BusinessState.INTERACTING;
+      highlightMarkerAndListItem(markerInfo, true);
+      // Restore previous state when done
+      currentBusinessState = previousState;
+    } else {
+      highlightMarkerAndListItem(markerInfo, true);
+    }
   });
   
   listItem.addEventListener('mouseleave', () => {
@@ -146,7 +190,16 @@ function setupMarkerListItemInteraction(markerInfo) {
   
   // Marker hover effects
   marker.addListener('mouseover', () => {
-    highlightMarkerAndListItem(markerInfo, true);
+    // Only change state if we're not already in an error state
+    if (currentBusinessState !== BusinessState.ERROR) {
+      const previousState = currentBusinessState;
+      currentBusinessState = BusinessState.INTERACTING;
+      highlightMarkerAndListItem(markerInfo, true);
+      // Restore previous state when done
+      currentBusinessState = previousState;
+    } else {
+      highlightMarkerAndListItem(markerInfo, true);
+    }
   });
   
   marker.addListener('mouseout', () => {
@@ -225,5 +278,7 @@ export {
   createBusinessMarkerIcons,
   setupMarkerListItemInteraction,
   setupBusinessClickInteraction,
-  highlightMarkerAndListItem
+  highlightMarkerAndListItem,
+  BusinessState,
+  getBusinessState
 };
