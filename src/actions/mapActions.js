@@ -75,3 +75,55 @@ export function initializeGoogleMap(elementId, config = {}) {
     };
   }
 }
+
+/**
+ * Create a Google Maps marker
+ * 
+ * This is a pure function that creates a Google Maps marker without modifying global state.
+ * It can be triggered by an FSM state transition like:
+ * MAP_READY -> MAP_UPDATING -> MAP_READY
+ * 
+ * @param {Object} position - The position (lat/lng) for the marker
+ * @param {Object} options - Additional options for the marker
+ * @param {google.maps.Map} map - The map instance to add the marker to
+ * @returns {Object} - Result object with success, data, and error properties
+ */
+export function createMapMarker(position, options = {}, map) {
+  try {
+    // Validate input
+    if (!position || position.lat === undefined || position.lng === undefined) {
+      return {
+        success: false,
+        error: new Error('Valid position with lat and lng is required')
+      };
+    }
+    
+    if (!map) {
+      return {
+        success: false,
+        error: new Error('Map instance is required')
+      };
+    }
+    
+    // Create the marker
+    const marker = new google.maps.Marker({
+      position,
+      map,
+      ...options
+    });
+    
+    return {
+      success: true,
+      data: {
+        marker,
+        position,
+        options
+      }
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error
+    };
+  }
+}

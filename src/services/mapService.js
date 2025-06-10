@@ -18,7 +18,7 @@
 
 import { GOOGLE_MAPS_API_KEY, MAP_CONFIG, MAPS_API_CONFIG } from '../config.js';
 import { clearBusinessData } from '../actions/businessActions.js';
-import { initializeGoogleMap } from '../actions/mapActions.js';
+import { initializeGoogleMap, createMapMarker } from '../actions/mapActions.js';
 
 /**
  * Map state constants
@@ -134,10 +134,8 @@ function getMapState() {
  * - Success Exit State: READY (marker added)
  * - Error Exit State: ERROR (with explicit state transition)
  * 
- * Future FSM Integration:
- * - Could check state before execution and reject if not in READY state
- * - Could return {state: 'MARKER_ADDED', marker: markerInstance}
- * - Could emit events for state transitions
+ * Now uses the createMapMarker action function while maintaining
+ * state management in this service.
  * 
  * @param {Object} position - The position (lat/lng) for the marker
  * @param {Object} options - Additional options for the marker
@@ -155,27 +153,33 @@ function addMarker(position, options = {}, markerType = 'business') {
   currentMapState = MapState.UPDATING;
 
   try {
-    const marker = new google.maps.Marker({
-      position,
-      map,
-      ...options
-    });
-
-    // Add to appropriate collection based on type
-    markers.push(marker); // Add to legacy array for backward compatibility
+    // Use the createMapMarker action function
+    const result = createMapMarker(position, options, map);
     
-    if (markerType === 'user') {
-      userMarkers.push(marker);
+    if (result.success) {
+      const marker = result.data.marker;
+      
+      // Add to appropriate collection based on type
+      markers.push(marker); // Add to legacy array for backward compatibility
+      
+      if (markerType === 'user') {
+        userMarkers.push(marker);
+      } else {
+        businessMarkers.push(marker);
+      }
+      
+      // Set state back to READY after marker is added
+      currentMapState = MapState.READY;
+      
+      return marker;
     } else {
-      businessMarkers.push(marker);
+      // Set state to ERROR if creating marker fails
+      currentMapState = MapState.ERROR;
+      console.error('Failed to create marker:', result.error);
+      return null;
     }
-    
-    // Set state back to READY after marker is added
-    currentMapState = MapState.READY;
-    
-    return marker;
   } catch (error) {
-    // Set state to ERROR if adding marker fails
+    // Set state to ERROR if any exception occurs
     currentMapState = MapState.ERROR;
     console.error('Failed to add marker:', error);
     return null;
