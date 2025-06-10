@@ -127,3 +127,63 @@ export function createMapMarker(position, options = {}, map) {
     };
   }
 }
+
+/**
+ * Update map view (center and zoom)
+ * 
+ * This is a pure function that updates a Google Maps view without modifying global state.
+ * It can be triggered by an FSM state transition like:
+ * MAP_READY -> MAP_UPDATING -> MAP_READY
+ * 
+ * @param {google.maps.Map} map - The map instance to update
+ * @param {Object} position - The position (lat/lng) to center on
+ * @param {number|null} zoom - Optional zoom level to set
+ * @returns {Object} - Result object with success, data, and error properties
+ */
+export function updateMapView(map, position, zoom = null) {
+  try {
+    // Validate input
+    if (!map) {
+      return {
+        success: false,
+        error: new Error('Map instance is required')
+      };
+    }
+    
+    if (!position || position.lat === undefined || position.lng === undefined) {
+      return {
+        success: false,
+        error: new Error('Valid position with lat and lng is required')
+      };
+    }
+    
+    // Update the map center
+    map.setCenter(position);
+    
+    // Update zoom if provided
+    if (zoom !== null) {
+      if (typeof zoom !== 'number' || zoom < 0) {
+        return {
+          success: false,
+          error: new Error('Zoom must be a non-negative number')
+        };
+      }
+      
+      map.setZoom(zoom);
+    }
+    
+    return {
+      success: true,
+      data: {
+        position,
+        zoom: zoom !== null ? zoom : map.getZoom(),
+        previousZoom: zoom !== null ? map.getZoom() : null
+      }
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error
+    };
+  }
+}

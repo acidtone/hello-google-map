@@ -18,7 +18,7 @@
 
 import { GOOGLE_MAPS_API_KEY, MAP_CONFIG, MAPS_API_CONFIG } from '../config.js';
 import { clearBusinessData } from '../actions/businessActions.js';
-import { initializeGoogleMap, createMapMarker } from '../actions/mapActions.js';
+import { initializeGoogleMap, createMapMarker, updateMapView } from '../actions/mapActions.js';
 
 /**
  * Map state constants
@@ -272,10 +272,8 @@ function clearUserMarkers() {
  * - Success Exit State: READY (with new center/zoom)
  * - Error Exit State: ERROR (with explicit state transition)
  * 
- * Future FSM Integration:
- * - Could emit a 'VIEW_CHANGED' event
- * - Could track view state separately from map state
- * - Could be part of a user interaction state machine
+ * Now uses the updateMapView action function while maintaining
+ * state management in this service.
  * 
  * @param {Object} position - The position (lat/lng) to center on
  * @param {number} zoom - The zoom level (optional)
@@ -290,15 +288,19 @@ function setCenter(position, zoom = null) {
   currentMapState = MapState.UPDATING;
 
   try {
-    map.setCenter(position);
-    if (zoom !== null) {
-      map.setZoom(zoom);
-    }
+    // Use the updateMapView action function
+    const result = updateMapView(map, position, zoom);
     
-    // Set state back to READY after view is updated
-    currentMapState = MapState.READY;
+    if (result.success) {
+      // Set state back to READY after view is updated
+      currentMapState = MapState.READY;
+    } else {
+      // Set state to ERROR if updating view fails
+      currentMapState = MapState.ERROR;
+      console.error('Failed to update map view:', result.error);
+    }
   } catch (error) {
-    // Set state to ERROR if updating view fails
+    // Set state to ERROR if any exception occurs
     currentMapState = MapState.ERROR;
     console.error('Failed to update map view:', error);
   }
