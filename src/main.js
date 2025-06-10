@@ -97,16 +97,68 @@ function loadGoogleMapsAPI() {
   }
 }
 
+/**
+ * Updates UI when map is ready or has initialization errors
+ * @param {Object} data - Contains map status and error information
+ * @param {boolean} data.isReady - Whether the map is ready
+ * @param {Object} [data.error] - Error information if applicable
+ * @param {string} [data.mapElementId] - ID of the map container element
+ */
+export function updateMapInitializationUI(data) {
+  const { isReady, error, mapElementId = 'map' } = data;
+  const mapElement = document.getElementById(mapElementId);
+  
+  if (!mapElement) return;
+  
+  if (error) {
+    // Display error message in the map container
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'map-error';
+    errorDiv.textContent = error.message || 'Error initializing map';
+    mapElement.innerHTML = '';
+    mapElement.appendChild(errorDiv);
+    return;
+  }
+  
+  if (isReady) {
+    // Map is ready, we could add any UI indicators here if needed
+    // For example, remove any loading indicators
+    const loadingIndicator = document.querySelector('.map-loading');
+    if (loadingIndicator) {
+      loadingIndicator.remove();
+    }
+  } else {
+    // Map is initializing, show loading indicator
+    const loadingDiv = document.createElement('div');
+    loadingDiv.className = 'map-loading';
+    loadingDiv.textContent = 'Loading map...';
+    mapElement.appendChild(loadingDiv);
+  }
+}
+
 // Initialize the map - this function is called by the Google Maps API
 window.initMap = function() {
-  // Initialize the map using the map service
-  initializeMap("map");
-  
-  // Try to get user location and update the map
-  getUserLocation();
-  
-  // Setup autocomplete for location predictions
-  setupLocationPredictions();
+  try {
+    // Initialize the map using the map service
+    initializeMap("map");
+    
+    // Update UI to indicate map is ready
+    updateMapInitializationUI({
+      isReady: true
+    });
+    
+    // Try to get user location and update the map
+    getUserLocation();
+    
+    // Setup autocomplete for location predictions
+    setupLocationPredictions();
+  } catch (error) {
+    // Handle map initialization error
+    updateMapInitializationUI({
+      isReady: false,
+      error: { message: 'Failed to initialize map: ' + error.message }
+    });
+  }
 };
 
 // Load the Google Maps API when the page loads
@@ -150,6 +202,49 @@ async function fetchPostalCode(latitude, longitude) {
 // getNearbyBusinesses function has been moved to businessService.js
 
 /**
+ * Updates UI with location information
+ * @param {Object} data - Contains location information
+ * @param {Object} data.coordinates - The coordinates object with lat and lng
+ * @param {string} [data.postalCode] - The postal code if available
+ * @param {string} [data.source] - The source of the location (e.g., 'Geolocation API')
+ * @param {string} [data.state] - The current location state
+ * @param {Object} [data.error] - Error information if applicable
+ */
+export function updateLocationUI(data) {
+  const { coordinates, postalCode, source = 'Unknown', state, error } = data;
+  const locationSpan = document.querySelector('.user-location span');
+  
+  // Handle error state
+  if (error) {
+    locationSpan.textContent = error.message || 'Error getting location';
+    return;
+  }
+  
+  // Update location text
+  if (coordinates) {
+    const lat = Number(coordinates.lat).toFixed(6);
+    const lng = Number(coordinates.lng).toFixed(6);
+    
+    if (postalCode) {
+      locationSpan.textContent = `Lat: ${lat}, Lng: ${lng} (${postalCode}) (${source})`;
+    } else {
+      locationSpan.textContent = `Lat: ${lat}, Lng: ${lng} (${source})`;
+    }
+    
+    // Center map and add marker if coordinates are valid
+    setCenter(coordinates);
+    addMarker(coordinates, {
+      title: "Your Location",
+      icon: {
+        url: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png"
+      }
+    }, 'user');
+  } else {
+    locationSpan.textContent = 'Location not available';
+  }
+}
+
+/**
  * Function to display location information
  * 
  * FSM State Pattern:
@@ -166,26 +261,16 @@ async function fetchPostalCode(latitude, longitude) {
  * - Could handle partial success states more explicitly
  */
 async function displayLocation(latitude, longitude, source = 'Geolocation API') {
-  const locationSpan = document.querySelector('.user-location span');
+  // Create user location object
+  const userLocation = { lat: latitude, lng: longitude };
   
   // First update with just coordinates
-  locationSpan.textContent = `Lat: ${Number(latitude).toFixed(6)}, Lng: ${Number(longitude).toFixed(6)} (${source})`;
+  updateLocationUI({
+    coordinates: userLocation,
+    source: source
+  });
   
   try {
-    // Create user location object
-    const userLocation = { lat: latitude, lng: longitude };
-    
-    // Immediately center the map and add marker - don't wait for API calls
-    setCenter(userLocation);
-    
-    // Add a marker for the user's location using map service
-    addMarker(userLocation, {
-      title: "Your Location",
-      icon: {
-        url: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png"
-      }
-    }, 'user'); // Specify this is a user marker
-    
     // Start both API calls in parallel
     const postalCodePromise = fetchPostalCode(latitude, longitude);
     const businessesPromise = getNearbyBusinesses(latitude, longitude);
@@ -197,8 +282,14 @@ async function displayLocation(latitude, longitude, source = 'Geolocation API') 
         businessesPromise
       ]);
       
-      // Update UI with results
-      locationSpan.textContent = `Lat: ${Number(latitude).toFixed(6)}, Lng: ${Number(longitude).toFixed(6)} (${postalCode}) (${source})`;
+      // Update UI with complete results
+      updateLocationUI({
+        coordinates: userLocation,
+        postalCode: postalCode,
+        source: source,
+        state: LocationState.READY
+      });
+      
       console.log(`Location from ${source}: Lat: ${latitude}, Lng: ${longitude}, Postal Code: ${postalCode}`);
       
       // Display businesses
@@ -214,13 +305,21 @@ async function displayLocation(latitude, longitude, source = 'Geolocation API') 
         console.log(errorInfo.message);
         
         // Still show the map with user location, even if we couldn't get additional data
-        locationSpan.textContent = `Lat: ${Number(latitude).toFixed(6)}, Lng: ${Number(longitude).toFixed(6)} (${source})`;
+        updateLocationUI({
+          coordinates: userLocation,
+          source: source,
+          state: LocationState.ERROR
+        });
       }
     }
   } catch (error) {
     // Handle critical errors in the core map functionality
     const errorInfo = handleError(error, 'map_display');
-    locationSpan.textContent = errorInfo.message;
+    
+    updateLocationUI({
+      error: errorInfo,
+      state: LocationState.ERROR
+    });
     
     // Take appropriate recovery action based on the recovery type
     if (errorInfo.recovery === RecoveryActions.NONE) {
@@ -230,21 +329,18 @@ async function displayLocation(latitude, longitude, source = 'Geolocation API') 
 }
 
 /**
- * Function to display nearby businesses in the UI and add markers to the map
- * 
- * FSM State Pattern:
- * - Entry State: Typically after a successful location operation (LocationState.READY)
- * - During Execution: Uses BusinessState.READY state data
- * - Success Exit State: Businesses displayed (implicit in UI update)
- * - Error Exit State: No businesses found or error (handled internally)
+ * Updates UI with business search results
+ * @param {Object} data - Contains businesses and related information
+ * @param {Array} data.businesses - Array of business objects
+ * @param {Object} data.userLocation - User location coordinates
+ * @param {string} [data.state] - Current business state
+ * @param {Object} [data.error] - Error information if applicable
  */
-function displayNearbyBusinesses(businesses, userLocation) {
-  // Check the current business state before displaying
-  const currentState = getBusinessState();
-  // Only clear business markers, preserving user location marker
-  clearBusinessMarkers();
+export function updateBusinessUI(data) {
+  const { businesses, userLocation, state, error } = data;
   
-  // No need to re-add the user location marker since we're not clearing it anymore
+  // Clear business markers, preserving user location marker
+  clearBusinessMarkers();
   
   // Check if the businesses container already exists
   let businessesContainer = document.getElementById('nearby-businesses');
@@ -261,11 +357,11 @@ function displayNearbyBusinesses(businesses, userLocation) {
   // Clear any existing businesses
   businessesContainer.innerHTML = '<h2>Nearby Businesses</h2>';
   
-  // If in error state, show error message
-  if (currentState === BusinessState.ERROR) {
+  // Handle error state
+  if (error || state === BusinessState.ERROR) {
     const errorMessage = document.createElement('p');
     errorMessage.className = 'error-message';
-    errorMessage.textContent = 'There was an error searching for businesses. Please try again.';
+    errorMessage.textContent = error?.message || 'There was an error searching for businesses. Please try again.';
     businessesContainer.appendChild(errorMessage);
     return;
   }
@@ -284,7 +380,7 @@ function displayNearbyBusinesses(businesses, userLocation) {
   // Labels for markers (A, B, C, D)
   const labels = ['A', 'B', 'C', 'D'];
   
-  // Create bounds for the map to fit all markers using map service
+  // Create bounds for the map to fit all markers
   const bounds = createBounds();
   
   // Add user location to bounds
@@ -389,6 +485,51 @@ function displayNearbyBusinesses(businesses, userLocation) {
     if (getMarkers().length === 0 && userLocation) {
       setCenter(userLocation, 14);
     }
+  }
+}
+
+/**
+ * Function to display nearby businesses in the UI and add markers to the map
+ * 
+ * FSM State Pattern:
+ * - Entry State: Typically after a successful location operation (LocationState.READY)
+ * - During Execution: Uses BusinessState.READY state data
+ * - Success Exit State: Businesses displayed (implicit in UI update)
+ * - Error Exit State: No businesses found or error (handled internally)
+ */
+function displayNearbyBusinesses(businesses, userLocation) {
+  // Check the current business state before displaying
+  const currentState = getBusinessState();
+  
+  // Update the UI using the extracted function
+  updateBusinessUI({
+    businesses: businesses,
+    userLocation: userLocation,
+    state: currentState
+  });
+}
+
+/**
+ * Updates UI during user interactions with businesses/markers
+ * @param {Object} data - Contains interaction details
+ * @param {Object} data.markerInfo - Object containing marker, listItem, and icon information
+ * @param {boolean} data.highlight - Whether to highlight or unhighlight
+ * @param {string} [data.state] - Current interaction state
+ */
+export function updateInteractionUI(data) {
+  const { markerInfo, highlight, state } = data;
+  const { marker, listItem, defaultIcon, highlightedIcon } = markerInfo;
+  
+  if (highlight) {
+    // Highlight marker
+    marker.setIcon(highlightedIcon);
+    // Highlight list item
+    listItem.classList.add('highlighted');
+  } else {
+    // Unhighlight marker
+    marker.setIcon(defaultIcon);
+    // Unhighlight list item
+    listItem.classList.remove('highlighted');
   }
 }
 

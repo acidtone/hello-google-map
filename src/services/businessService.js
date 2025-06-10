@@ -18,6 +18,7 @@
 
 import { FOURSQUARE_API_KEY } from '../config.js';
 import { handleError } from './errorService.js';
+import { updateInteractionUI } from '../main.js';
 
 /**
  * Business state constants
@@ -217,20 +218,12 @@ function setupMarkerListItemInteraction(markerInfo) {
  * @param {boolean} highlight - Whether to highlight or unhighlight
  */
 function highlightMarkerAndListItem(markerInfo, highlight) {
-  const { marker, listItem, defaultIcon, highlightedIcon } = markerInfo;
-  
-  
-  if (highlight) {
-    // Highlight marker
-    marker.setIcon(highlightedIcon);
-    // Highlight list item
-    listItem.classList.add('highlighted');
-  } else {
-    // Unhighlight marker
-    marker.setIcon(defaultIcon);
-    // Unhighlight list item
-    listItem.classList.remove('highlighted');
-  }
+  // Use the updateInteractionUI function to handle UI updates
+  updateInteractionUI({
+    markerInfo: markerInfo,
+    highlight: highlight,
+    state: currentBusinessState
+  });
 }
 
 /**
