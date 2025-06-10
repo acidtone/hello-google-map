@@ -27,7 +27,8 @@
  * prioritizes tracking critical operations over comprehensive state management.
  */
 
-import { GOOGLE_MAPS_API_KEY, DEFAULT_LOCATION } from '../config.js';
+import { GOOGLE_MAPS_API_KEY } from '../config.js';
+import { fetchGeolocationData, fetchDefaultLocation } from '../actions/locationActions.js';
 
 /**
  * Location state constants
@@ -65,41 +66,33 @@ function getLocationState() {
  * - Success Exit State: READY (explicit state transition)
  * - Error Exit State: ERROR (explicit state transition)
  * 
- * Future FSM Integration:
- * - Could return state object {state: 'READY', data: {lat, lng}} on success
- * - Could return state object {state: 'ERROR', error: Error} on failure
- * - Could emit state transition events for external subscribers
+ * Now uses the fetchGeolocationData action function for the API call,
+ * while maintaining state management in this service.
  * 
  * @returns {Promise} - Resolves with the user's location or rejects with an error
  */
-function getCurrentLocation() {
+async function getCurrentLocation() {
   // Set state to FETCHING at the beginning
   currentLocationState = LocationState.FETCHING;
   
-  return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
-      // Set state to ERROR if geolocation is not supported
+  try {
+    // Use the fetchGeolocationData action function
+    const result = await fetchGeolocationData();
+    
+    if (result.success) {
+      // Set state to READY on success
+      currentLocationState = LocationState.READY;
+      return result.data;
+    } else {
+      // Set state to ERROR on failure
       currentLocationState = LocationState.ERROR;
-      reject(new Error('Geolocation is not supported by this browser.'));
-      return;
+      throw result.error;
     }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        // Set state to READY on success
-        currentLocationState = LocationState.READY;
-        resolve({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude
-        });
-      },
-      (error) => {
-        // Set state to ERROR on failure
-        currentLocationState = LocationState.ERROR;
-        reject(error);
-      }
-    );
-  });
+  } catch (error) {
+    // Set state to ERROR on any exception
+    currentLocationState = LocationState.ERROR;
+    throw error;
+  }
 }
 
 /**
@@ -222,21 +215,29 @@ async function geocodeZipCode(zipCode) {
  * - Acts as a fallback when location services fail
  * - Typically called when state is already ERROR to provide recovery
  * 
- * Future FSM Integration:
- * - Could set state to READY with a 'fallback' flag
- * - Could return {state: 'READY', source: 'default', data: defaultLocation}
- * - Could be part of a formal recovery action in the state machine
+ * Now uses the fetchDefaultLocation action function while maintaining
+ * the same behavior regarding state management.
  * 
  * @returns {Object} - The default location
  */
 function getDefaultLocation() {
   // Note: We don't change state here as this is typically called
   // after an error has already occurred and state is already set to ERROR
-  return {
-    lat: DEFAULT_LOCATION.lat,
-    lng: DEFAULT_LOCATION.lng,
-    name: DEFAULT_LOCATION.name
-  };
+  
+  // Use the fetchDefaultLocation action function
+  const result = fetchDefaultLocation();
+  
+  if (result.success) {
+    return result.data;
+  } else {
+    console.error('Error getting default location:', result.error);
+    // Return a hardcoded fallback in case the action fails
+    return {
+      lat: 40.7128,
+      lng: -74.0060,
+      name: 'New York City (Emergency Fallback)'
+    };
+  }
 }
 
 // Export public methods
