@@ -92,3 +92,19 @@ export async function fetchBusinessData(location, limit = 4) {
     };
   }
 }
+
+/**
+ * Clear business data
+ * 
+ * This is a pure function that returns a success result when business data
+ * should be cleared. It can be triggered by an FSM state transition like:
+ * ANY_STATE -> BUSINESS_IDLE
+ * 
+ * @returns {Object} - Result object with success property
+ */
+export function clearBusinessData() {
+  return {
+    success: true,
+    data: null
+  };
+}

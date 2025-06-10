@@ -17,6 +17,7 @@
  */
 
 import { GOOGLE_MAPS_API_KEY, MAP_CONFIG, MAPS_API_CONFIG } from '../config.js';
+import { clearBusinessData } from '../actions/businessActions.js';
 
 /**
  * Map state constants
@@ -236,9 +237,20 @@ function clearMarkers(type = 'all') {
 
 /**
  * Clear only business markers from the map
+ * 
+ * Now uses the clearBusinessData action function to ensure business data
+ * state is properly managed alongside UI marker clearing.
  */
 function clearBusinessMarkers() {
-  clearMarkers('business');
+  // Call the pure action function first
+  const result = clearBusinessData();
+  
+  // If the action was successful, proceed with UI marker clearing
+  if (result.success) {
+    clearMarkers('business');
+  } else if (result.error) {
+    console.error('Error clearing business data:', result.error);
+  }
 }
 
 /**
