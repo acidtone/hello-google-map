@@ -455,15 +455,13 @@ function getUserLocation() {
  * 
  * FSM State Pattern:
  * - Entry State: IDLE
- * - During Execution: SEARCHING_LOCATION
- * - Success Exit State: Transitions to displayLocation function
- * - Error Exit State: ERROR (handled by error service)
+ * - During Execution: GEOCODING (explicit via LocationState.GEOCODING)
+ * - Success Exit State: READY (explicit via LocationState.READY)
+ * - Error Exit State: ERROR (explicit via LocationState.ERROR)
  *   - May focus on input field based on recovery action
  * 
- * Future FSM Integration:
- * - Could track state explicitly: let searchState = 'SEARCHING_LOCATION'
- * - Could return state objects from async operations
- * - Could emit events for state transitions
+ * This function now checks the location state to ensure it matches the expected
+ * state at each step of the process.
  */
 async function searchByZipCode(zipCode) {
   const locationSpan = document.querySelector('.user-location span');
@@ -477,19 +475,41 @@ async function searchByZipCode(zipCode) {
     // Use location service to geocode the zip code
     const locationData = await geocodeZipCode(zipCode);
     
-    // Display the location and update the map
-    await displayLocation(locationData.lat, locationData.lng, `Zip/Postal Code: ${zipCode}`);
+    // Verify we're in the expected state after geocoding
+    if (getLocationState() === LocationState.READY) {
+      // Display the location and update the map
+      await displayLocation(locationData.lat, locationData.lng, `Zip/Postal Code: ${zipCode}`);
+    } else {
+      console.warn(`Unexpected location state after geocoding: ${getLocationState()}`);
+      // Still proceed with the location data we received
+      await displayLocation(locationData.lat, locationData.lng, `Zip/Postal Code: ${zipCode}`);
+    }
   } catch (error) {
-    // Handle errors in an FSM-friendly way
-    const errorInfo = handleError(error, 'geocoding');
-    locationSpan.textContent = errorInfo.message;
-    
-    // Take appropriate recovery action based on the recovery type
-    if (errorInfo.recovery === RecoveryActions.SHOW_FORM) {
-      // Focus on the zip input to encourage the user to try again
-      const zipInput = document.getElementById('zip-input');
-      if (zipInput) {
-        zipInput.focus();
+    // Verify we're in ERROR state as expected
+    if (getLocationState() === LocationState.ERROR) {
+      // Handle errors in an FSM-friendly way
+      const errorInfo = handleError(error, 'geocoding');
+      locationSpan.textContent = errorInfo.message;
+      
+      // Take appropriate recovery action based on the recovery type
+      if (errorInfo.recovery === RecoveryActions.SHOW_FORM) {
+        // Focus on the zip input to encourage the user to try again
+        const zipInput = document.getElementById('zip-input');
+        if (zipInput) {
+          zipInput.focus();
+        }
+      }
+    } else {
+      console.error(`Unexpected location state during geocoding error: ${getLocationState()}`);
+      // Handle the error anyway
+      const errorInfo = handleError(error, 'geocoding');
+      locationSpan.textContent = errorInfo.message;
+      
+      if (errorInfo.recovery === RecoveryActions.SHOW_FORM) {
+        const zipInput = document.getElementById('zip-input');
+        if (zipInput) {
+          zipInput.focus();
+        }
       }
     }
   }
