@@ -12,15 +12,24 @@
     "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
     "outDir": "dist",
-    "types": ["node"],
+    "types": ["node", "google.maps"],
     "baseUrl": "./src",
     "paths": {
       "@/*": ["*"],
       "@actions/*": ["actions/*"],
       "@services/*": ["services/*"],
       "@config": ["config"]
-    }
+    },
+    "allowJs": true,
+    "checkJs": false,
+    "isolatedModules": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/actions/locationActions.js",
+    "src/actions/mapActions.js",
+    "src/actions/businessActions.js"
+  ]
 }
