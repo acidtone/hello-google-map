@@ -46,8 +46,8 @@ export async function getNearbyBusinesses(
 
 /** Create default and highlighted marker icons for businesses */
 export function createBusinessMarkerIcons(): {
-  default: google.maps.Icon | google.maps.Symbol;
-  highlighted: google.maps.Icon | google.maps.Symbol;
+  default: google.maps.Symbol;
+  highlighted: google.maps.Symbol;
 } {
   return {
     default: {
@@ -75,8 +75,8 @@ export function createBusinessMarkerIcons(): {
 export interface BusinessMarkerInfo {
   marker: google.maps.Marker;
   listItem: HTMLElement;
-  defaultIcon: google.maps.Icon;
-  highlightedIcon: google.maps.Icon;
+  defaultIcon: google.maps.Symbol;
+  highlightedIcon: google.maps.Symbol;
   business: Business;
 }
 

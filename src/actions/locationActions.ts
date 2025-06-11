@@ -1,4 +1,4 @@
-import { DEFAULT_LOCATION, GOOGLE_MAPS_API_KEY } from '../config.js';
+import { DEFAULT_LOCATION, GOOGLE_MAPS_API_KEY } from '../config';
 import type { LatLng, LocationResult, Result } from '../types/core';
 
 /**

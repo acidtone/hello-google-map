@@ -9,6 +9,8 @@
 export interface LatLng {
   lat: number;
   lng: number;
+  formattedAddress?: string;
+  source?: string;
 }
 
 // Generic result pattern used by pure action functions

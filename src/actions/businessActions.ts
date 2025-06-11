@@ -1,4 +1,4 @@
-import { FOURSQUARE_API_KEY } from '../config.js';
+import { FOURSQUARE_API_KEY } from '../config';
 import type { LatLng, Business, Result } from '../types/core';
 
 /** Fetch business data from Foursquare API */

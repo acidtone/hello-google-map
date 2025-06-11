@@ -1,4 +1,4 @@
-import { MAP_CONFIG } from '../config.js';
+import { MAP_CONFIG } from '../config';
 import type { LatLng, MapResult, Result } from '../types/core';
 
 /** Initialize a Google Map instance */
