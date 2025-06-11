@@ -41,4 +41,5 @@ export interface Business {
   latlng: LatLng;
   category?: string;
   address?: string;
+  website?: string;
 }

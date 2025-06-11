@@ -30,6 +30,9 @@
     "dist",
     "src/actions/locationActions.js",
     "src/actions/mapActions.js",
-    "src/actions/businessActions.js"
+    "src/actions/businessActions.js",
+    "src/services/locationService.js",
+    "src/services/businessService.js",
+    "src/services/mapService.js"
   ]
 }
