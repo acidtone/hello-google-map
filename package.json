@@ -6,10 +6,13 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "type-check": "tsc --noEmit"
   },
   "devDependencies": {
     "dotenv-expand": "^12.0.2",
-    "vite": "^6.3.5"
+    "vite": "^6.3.5",
+    "typescript": "^5.4.0",
+    "@types/node": "^20.11.0"
   }
 }
