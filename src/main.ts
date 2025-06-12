@@ -141,6 +141,35 @@ export function updateMapInitializationUI(data: { isReady: boolean; error?: Erro
   }
 }
 
+/**
+ * Updates the UI for marker and list item interactions
+ * 
+ * @param data - Object containing interaction data
+ * @param data.markerInfo - The marker info object
+ * @param data.highlight - Whether to highlight or unhighlight
+ * @param data.state - Current interaction state
+ */
+export function updateInteractionUI(data: {
+  markerInfo: BusinessMarkerInfo;
+  highlight: boolean;
+  state?: string;
+}) {
+  const { markerInfo, highlight } = data;
+  const { marker, listItem, defaultIcon, highlightedIcon } = markerInfo;
+  
+  if (highlight) {
+    // Highlight marker
+    marker.setIcon(highlightedIcon);
+    // Highlight list item
+    listItem.classList.add('highlighted');
+  } else {
+    // Unhighlight marker
+    marker.setIcon(defaultIcon);
+    // Unhighlight list item
+    listItem.classList.remove('highlighted');
+  }
+}
+
 // Initialize the map - this function is called by the Google Maps API
 window.initMap = function(): void {
   try {
