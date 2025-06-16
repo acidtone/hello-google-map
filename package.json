@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "devDependencies": {
+    "@types/google.maps": "^3.58.1",
     "dotenv-expand": "^12.0.2",
     "vite": "^6.3.5"
   }
