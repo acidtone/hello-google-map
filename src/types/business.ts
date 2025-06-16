@@ -78,3 +78,11 @@ export type BusinessSearchParams = {
   categories?: string[];
   query?: string;
 };
+
+/**
+ * Represents options for processing business data
+ */
+export type BusinessSearchOptions = {
+  limit?: number;
+  sortBy?: 'distance' | 'rating' | string;
+};

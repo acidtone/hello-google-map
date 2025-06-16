@@ -3,18 +3,13 @@
  * 
  * This module contains pure action functions related to business data operations.
  * These functions are designed to be triggered by FSM state transitions and don't
- * directly modify UI or global state. Each function returns a result object with
+ * directly modify UI or global state. Each function returns a Result object with
  * a consistent structure.
- * 
- * Result object structure:
- * {
- *   success: boolean,  // Whether the action was successful
- *   data?: any,        // Optional data returned by the action
- *   error?: Error      // Optional error information if success is false
- * }
  */
 
 import { FOURSQUARE_API_KEY } from '../config';
+import { Business, BusinessSearchParams, BusinessSearchOptions } from '../types/business';
+import { Result } from '../types/result';
 
 /**
  * Fetch business data from Foursquare API
@@ -23,13 +18,14 @@ import { FOURSQUARE_API_KEY } from '../config';
  * It can be triggered by an FSM state transition like:
  * LOCATION_READY -> BUSINESS_SEARCHING -> BUSINESS_READY/BUSINESS_ERROR
  * 
- * @param {Object} location - Location data object
- * @param {number} location.latitude - Latitude coordinate
- * @param {number} location.longitude - Longitude coordinate
- * @param {number} [limit=4] - Maximum number of businesses to return
- * @returns {Promise<Object>} - Result object with success, data, and error properties
+ * @param location - Location data object with latitude and longitude
+ * @param limit - Maximum number of businesses to return
+ * @returns Promise with Result containing array of Business objects or Error
  */
-export async function fetchBusinessData(location, limit = 4) {
+export async function fetchBusinessData(
+  location: BusinessSearchParams,
+  limit: number = 4
+): Promise<Result<Business[], Error>> {
   try {
     const { latitude, longitude } = location;
     
@@ -55,8 +51,8 @@ export async function fetchBusinessData(location, limit = 4) {
     // Query parameters
     const params = new URLSearchParams({
       ll: `${latitude},${longitude}`,
-      radius: 1000, // 1000 meters radius
-      limit: limit,
+      radius: '1000', // 1000 meters radius (as string for URLSearchParams)
+      limit: limit.toString(),
       categories: '13000,13065,17000,17062', // Food, Restaurants, Shops, etc.
       sort: 'DISTANCE',
       fields: 'fsq_id,name,location,geocodes,website,tel,categories'
@@ -85,10 +81,10 @@ export async function fetchBusinessData(location, limit = 4) {
       success: true,
       data: results
     };
-  } catch (error) {
+  } catch (error: unknown) {
     return {
       success: false,
-      error: error
+      error: error instanceof Error ? error : new Error(String(error))
     };
   }
 }
@@ -100,9 +96,9 @@ export async function fetchBusinessData(location, limit = 4) {
  * should be cleared. It can be triggered by an FSM state transition like:
  * ANY_STATE -> BUSINESS_IDLE
  * 
- * @returns {Object} - Result object with success property
+ * @returns Result with null data
  */
-export function clearBusinessData() {
+export function clearBusinessData(): Result<null, never> {
   return {
     success: true,
     data: null
@@ -117,13 +113,14 @@ export function clearBusinessData() {
  * It can be triggered by an FSM state transition like:
  * BUSINESS_READY -> BUSINESS_PROCESSED
  * 
- * @param {Array} businesses - Array of business objects from Foursquare API
- * @param {Object} options - Processing options
- * @param {number} [options.limit=4] - Maximum number of businesses to include
- * @param {string} [options.sortBy='distance'] - Sort criteria ('distance', 'rating', etc.)
- * @returns {Object} - Result object with success and processed data
+ * @param businesses - Array of business objects from Foursquare API
+ * @param options - Processing options for limit and sort criteria
+ * @returns Result with processed business data or error
  */
-export function processBusinessData(businesses, options = {}) {
+export function processBusinessData(
+  businesses: Business[], 
+  options: BusinessSearchOptions = {}
+): Result<Business[], Error> {
   try {
     // Default options
     const {
@@ -159,10 +156,11 @@ export function processBusinessData(businesses, options = {}) {
       const enriched = { ...business };
       
       // Add a formatted address if not already present
-      if (business.location && !business.location.formatted_address) {
-        const { address, locality, region, postcode } = business.location;
-        const addressParts = [address, locality, region, postcode].filter(Boolean);
-        enriched.location.formatted_address = addressParts.join(', ');
+      if (business.location && (!business.location.formattedAddress || business.location.formattedAddress.length === 0)) {
+        const { address, city, state, postalCode, country } = business.location;
+        const addressParts = [address, city, state, postalCode, country].filter(Boolean);
+        // Set as a string array to match the Business type
+        enriched.location.formattedAddress = [addressParts.join(', ')];
       }
       
       return enriched;
@@ -172,10 +170,10 @@ export function processBusinessData(businesses, options = {}) {
       success: true,
       data: processedBusinesses
     };
-  } catch (error) {
+  } catch (error: unknown) {
     return {
       success: false,
-      error
+      error: error instanceof Error ? error : new Error(String(error))
     };
   }
 }
