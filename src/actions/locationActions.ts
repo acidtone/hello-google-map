@@ -101,10 +101,10 @@ export function fetchDefaultLocation(): Result<Location, Error> {
         source: 'Default Configuration'
       }
     };
-  } catch (error) {
+  } catch (error: unknown) {
     return {
       success: false,
-      error
+      error: error instanceof Error ? error : new Error(String(error))
     };
   }
 }
@@ -268,10 +268,10 @@ export async function reverseGeocode(
         error: new Error(`Reverse geocoding error: ${data.status}`)
       };
     }
-  } catch (error) {
+  } catch (error: unknown) {
     return {
       success: false,
-      error
+      error: error instanceof Error ? error : new Error(String(error))
     };
   }
 }
