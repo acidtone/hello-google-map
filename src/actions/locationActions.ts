@@ -150,8 +150,8 @@ export async function geocodeAddress(
     // Process the response
     if (data.status === 'OK' && data.results && data.results.length > 0) {
       const result = data.results[0];
-      // Get location coordinates but we don't need them since we're returning a GeocodingResult
-      // const locationCoords = result.geometry.location;
+      // Get location coordinates to include in the GeocodingResult
+      const locationCoords = result.geometry.location;
       
       // Convert address components to our format
       const addressComponents: Record<string, string> = {};
@@ -165,7 +165,9 @@ export async function geocodeAddress(
         formattedAddress: result.formatted_address,
         addressComponents,
         placeId: result.place_id,
-        postalCode: addressComponents['postal_code']
+        postalCode: addressComponents['postal_code'],
+        lat: locationCoords.lat,
+        lng: locationCoords.lng
       };
       
       return {
@@ -259,7 +261,9 @@ export async function reverseGeocode(
           formattedAddress: data.results[0].formatted_address,
           addressComponents,
           postalCode: postalCode.value,
-          placeId: data.results[0].place_id
+          placeId: data.results[0].place_id,
+          lat: latitude,
+          lng: longitude
         }
       };
     } else {

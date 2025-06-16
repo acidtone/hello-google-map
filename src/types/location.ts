@@ -34,6 +34,8 @@ export type GeocodingResult = {
   addressComponents: AddressComponents;
   placeId: string;
   postalCode?: string;
+  lat: number;  // Latitude coordinate
+  lng: number;  // Longitude coordinate
 };
 
 /**
