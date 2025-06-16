@@ -5,16 +5,15 @@
  * These functions are designed to be triggered by FSM state transitions and don't
  * directly modify UI or global state. Each function returns a result object with
  * a consistent structure.
- * 
- * Result object structure:
- * {
- *   success: boolean,  // Whether the action was successful
- *   data?: any,        // Optional data returned by the action
- *   error?: Error      // Optional error information if success is false
- * }
  */
 
 import { DEFAULT_LOCATION, GOOGLE_MAPS_API_KEY } from '../config';
+import { 
+  Result, 
+  Location, 
+  GeocodingResult, 
+  GeolocationError
+} from '../types';
 
 /**
  * Fetch user's geolocation data using browser's Geolocation API
@@ -23,14 +22,18 @@ import { DEFAULT_LOCATION, GOOGLE_MAPS_API_KEY } from '../config';
  * It can be triggered by an FSM state transition like:
  * LOCATION_IDLE -> LOCATION_FETCHING -> LOCATION_READY/LOCATION_ERROR
  * 
- * @returns {Promise<Object>} - Result object with success, data, and error properties
+ * @returns Promise with Result containing Location data or GeolocationError
  */
-export function fetchGeolocationData() {
+export function fetchGeolocationData(): Promise<Result<Location, GeolocationError>> {
   return new Promise((resolve) => {
     if (!navigator.geolocation) {
       resolve({
         success: false,
-        error: new Error('Geolocation is not supported by this browser.')
+        error: {
+          code: 0,
+          message: 'Geolocation is not supported by this browser.',
+          type: 'UNKNOWN_ERROR'
+        }
       });
       return;
     }
@@ -47,9 +50,23 @@ export function fetchGeolocationData() {
         });
       },
       (error) => {
+        // Map browser GeolocationPositionError to our GeolocationError type
+        const errorType = (() => {
+          switch (error.code) {
+            case 1: return 'PERMISSION_DENIED';
+            case 2: return 'POSITION_UNAVAILABLE';
+            case 3: return 'TIMEOUT';
+            default: return 'UNKNOWN_ERROR';
+          }
+        })() as GeolocationError['type'];
+        
         resolve({
           success: false,
-          error: error
+          error: {
+            code: error.code,
+            message: error.message,
+            type: errorType
+          }
         });
       }
     );
@@ -63,9 +80,9 @@ export function fetchGeolocationData() {
  * It can be triggered by an FSM state transition like:
  * LOCATION_ERROR -> LOCATION_FALLBACK -> LOCATION_READY
  * 
- * @returns {Object} - Result object with success and data properties
+ * @returns Result containing Location data or Error
  */
-export function fetchDefaultLocation() {
+export function fetchDefaultLocation(): Result<Location, Error> {
   try {
     // Validate that default location is properly configured
     if (!DEFAULT_LOCATION || typeof DEFAULT_LOCATION.lat !== 'number' || typeof DEFAULT_LOCATION.lng !== 'number') {
@@ -99,11 +116,14 @@ export function fetchDefaultLocation() {
  * using the Google Maps Geocoding API. It can be triggered by an FSM state transition like:
  * LOCATION_IDLE -> LOCATION_GEOCODING -> LOCATION_READY/LOCATION_ERROR
  * 
- * @param {string} address - The address to geocode (can be a zip/postal code)
- * @param {string} apiKey - Google Maps API key (optional, uses config by default)
- * @returns {Promise<Object>} - Result object with success, data, and error properties
+ * @param address - The address to geocode (can be a zip/postal code)
+ * @param apiKey - Google Maps API key (optional, uses config by default)
+ * @returns Promise with Result containing GeocodingResult or Error
  */
-export async function geocodeAddress(address, apiKey = GOOGLE_MAPS_API_KEY) {
+export async function geocodeAddress(
+  address: string, 
+  apiKey: string = GOOGLE_MAPS_API_KEY
+): Promise<Result<GeocodingResult, Error>> {
   try {
     // Validate input
     if (!address) {
@@ -130,29 +150,38 @@ export async function geocodeAddress(address, apiKey = GOOGLE_MAPS_API_KEY) {
     // Process the response
     if (data.status === 'OK' && data.results && data.results.length > 0) {
       const result = data.results[0];
-      const location = result.geometry.location;
+      // Get location coordinates but we don't need them since we're returning a GeocodingResult
+      // const locationCoords = result.geometry.location;
+      
+      // Convert address components to our format
+      const addressComponents: Record<string, string> = {};
+      result.address_components.forEach((component: any) => {
+        component.types.forEach((type: string) => {
+          addressComponents[type] = component.long_name;
+        });
+      });
+      
+      const geocodingResult: GeocodingResult = {
+        formattedAddress: result.formatted_address,
+        addressComponents,
+        placeId: result.place_id,
+        postalCode: addressComponents['postal_code']
+      };
       
       return {
         success: true,
-        data: {
-          lat: location.lat,
-          lng: location.lng,
-          formattedAddress: result.formatted_address,
-          addressComponents: result.address_components,
-          placeId: result.place_id
-        }
+        data: geocodingResult
       };
     } else {
       return {
         success: false,
-        error: new Error(`Geocoding error: ${data.status}`),
-        errorDetails: data
+        error: new Error(`Geocoding error: ${data.status}`)
       };
     }
-  } catch (error) {
+  } catch (error: unknown) {
     return {
       success: false,
-      error
+      error: error instanceof Error ? error : new Error(String(error))
     };
   }
 }
@@ -164,12 +193,16 @@ export async function geocodeAddress(address, apiKey = GOOGLE_MAPS_API_KEY) {
  * using the Google Maps Geocoding API. It can be triggered by an FSM state transition like:
  * LOCATION_IDLE -> LOCATION_GEOCODING -> LOCATION_READY/LOCATION_ERROR
  * 
- * @param {number} latitude - The latitude coordinate
- * @param {number} longitude - The longitude coordinate
- * @param {string} apiKey - Google Maps API key (optional, uses config by default)
- * @returns {Promise<Object>} - Result object with success, data, and error properties
+ * @param latitude - The latitude coordinate
+ * @param longitude - The longitude coordinate
+ * @param apiKey - Google Maps API key (optional, uses config by default)
+ * @returns Promise with Result containing GeocodingResult or Error
  */
-export async function reverseGeocode(latitude, longitude, apiKey = GOOGLE_MAPS_API_KEY) {
+export async function reverseGeocode(
+  latitude: number, 
+  longitude: number, 
+  apiKey: string = GOOGLE_MAPS_API_KEY
+): Promise<Result<GeocodingResult, Error>> {
   try {
     // Validate input
     if (latitude === undefined || longitude === undefined) {
@@ -196,14 +229,14 @@ export async function reverseGeocode(latitude, longitude, apiKey = GOOGLE_MAPS_A
     // Process the response
     if (data.status === 'OK' && data.results && data.results.length > 0) {
       // Extract all address components
-      const addressComponents = {};
+      const addressComponents: Record<string, string> = {};
       const postalCode = { found: false, value: 'Unknown' };
       
       // Process all results to find postal code and other components
       for (const result of data.results) {
         for (const component of result.address_components) {
           // Store each component by its type
-          component.types.forEach(type => {
+          component.types.forEach((type: string) => {
             if (!addressComponents[type]) {
               addressComponents[type] = component.long_name;
             }
@@ -232,8 +265,7 @@ export async function reverseGeocode(latitude, longitude, apiKey = GOOGLE_MAPS_A
     } else {
       return {
         success: false,
-        error: new Error(`Reverse geocoding error: ${data.status}`),
-        errorDetails: data
+        error: new Error(`Reverse geocoding error: ${data.status}`)
       };
     }
   } catch (error) {
