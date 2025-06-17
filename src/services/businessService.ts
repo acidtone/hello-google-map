@@ -19,6 +19,16 @@
 import { handleError } from './errorService';
 import { updateInteractionUI } from '../main';
 import { fetchBusinessData } from '../actions/businessActions';
+import { Business } from '../types/business';
+
+// Define types for marker interactions
+type MarkerInfo = {
+  marker: google.maps.Marker;
+  listItem: HTMLElement;
+  default: google.maps.Icon | google.maps.Symbol;
+  highlighted: google.maps.Icon | google.maps.Symbol;
+  business?: Business;
+};
 
 /**
  * Business state constants
@@ -30,10 +40,12 @@ const BusinessState = {
   READY: 'READY',         // Business data successfully retrieved
   ERROR: 'ERROR',         // Error occurred during business operations
   INTERACTING: 'INTERACTING' // User is interacting with business markers/listings
-};
+} as const;
+
+type BusinessStateType = typeof BusinessState[keyof typeof BusinessState];
 
 // Track the current state of the business service
-let currentBusinessState = BusinessState.IDLE;
+let currentBusinessState: BusinessStateType = BusinessState.IDLE;
 
 /**
  * Get the current state of the business service
@@ -41,9 +53,9 @@ let currentBusinessState = BusinessState.IDLE;
  * This function provides explicit state information that can be used
  * by other modules to make decisions based on the business service's current state.
  * 
- * @returns {string} - The current state of the business service
+ * @returns The current state of the business service
  */
-function getBusinessState() {
+function getBusinessState(): BusinessStateType {
   return currentBusinessState;
 }
 
@@ -61,12 +73,16 @@ function getBusinessState() {
  * Now uses the fetchBusinessData action function for the API call,
  * while maintaining state management in this service.
  * 
- * @param {number} latitude - Latitude coordinate
- * @param {number} longitude - Longitude coordinate
- * @param {number} limit - Maximum number of businesses to return
- * @returns {Promise<Array>} - Array of business objects
+ * @param latitude - Latitude coordinate
+ * @param longitude - Longitude coordinate
+ * @param limit - Maximum number of businesses to return
+ * @returns Promise that resolves with an array of business objects
  */
-async function getNearbyBusinesses(latitude, longitude, limit = 4) {
+async function getNearbyBusinesses(
+  latitude: number, 
+  longitude: number, 
+  limit: number = 4
+): Promise<Business[]> {
   try {
     // Set state to SEARCHING at the start of the operation
     currentBusinessState = BusinessState.SEARCHING;
@@ -89,7 +105,7 @@ async function getNearbyBusinesses(latitude, longitude, limit = 4) {
       throw result.error;
     }
 
-  } catch (error) {
+  } catch (error: unknown) {
     // Set state to ERROR
     currentBusinessState = BusinessState.ERROR;
     
@@ -110,13 +126,16 @@ async function getNearbyBusinesses(latitude, longitude, limit = 4) {
  * Future FSM Integration:
  * - Could be part of a UI state manager that tracks marker visual states
  * 
- * @returns {Object} - Object containing default and highlighted icon configurations
+ * @returns Object containing default and highlighted icon configurations
  */
-function createBusinessMarkerIcons() {
+function createBusinessMarkerIcons(): { 
+  default: google.maps.Symbol; 
+  highlighted: google.maps.Symbol; 
+} {
   return {
     default: {
       path: google.maps.SymbolPath.CIRCLE,
-      fillColor: '#EA4335',
+      fillColor: '#EA4335', // Google red
       fillOpacity: 1,
       scale: 10,
       strokeColor: '#FFFFFF',
@@ -143,10 +162,10 @@ function createBusinessMarkerIcons() {
  *   - IDLE/READY -> INTERACTING -> IDLE/READY
  * - Now uses explicit BusinessState.INTERACTING state
  * 
- * @param {Object} markerInfo - Object containing marker, listItem, and icon information
+ * @param markerInfo - Object containing marker, listItem, and icon information
  */
-function setupMarkerListItemInteraction(markerInfo) {
-  const { marker, listItem, defaultIcon, highlightedIcon } = markerInfo;
+function setupMarkerListItemInteraction(markerInfo: MarkerInfo): void {
+  const { marker, listItem, default: defaultIcon, highlighted: highlightedIcon } = markerInfo;
   
   // List item hover effects
   listItem.addEventListener('mouseenter', () => {
@@ -194,10 +213,10 @@ function setupMarkerListItemInteraction(markerInfo) {
  *   - HIGHLIGHTED (active state)
  * - Works with the BusinessState.INTERACTING state
  * 
- * @param {Object} markerInfo - Object containing marker, listItem, and icon information
- * @param {boolean} highlight - Whether to highlight or unhighlight
+ * @param markerInfo - Object containing marker, listItem, and icon information
+ * @param highlight - Whether to highlight or unhighlight
  */
-function highlightMarkerAndListItem(markerInfo, highlight) {
+function highlightMarkerAndListItem(markerInfo: MarkerInfo, highlight: boolean): void {
   // Use the updateInteractionUI function to handle UI updates
   updateInteractionUI({
     markerInfo: markerInfo,
@@ -214,13 +233,13 @@ function highlightMarkerAndListItem(markerInfo, highlight) {
  * - Explicit state transition: IDLE/READY -> INTERACTING -> IDLE/READY
  * - Uses BusinessState.INTERACTING during click interactions
  * 
- * @param {Object} markerInfo - Object containing marker, listItem, and business information
+ * @param markerInfo - Object containing marker, listItem, and business information
  */
-function setupBusinessClickInteraction(markerInfo) {
+function setupBusinessClickInteraction(markerInfo: MarkerInfo): void {
   const { marker, listItem, business } = markerInfo;
   
   // Only setup click interactions if there's a website
-  if (business.website) {
+  if (business?.website) {
     // Marker click opens website
     marker.addListener('click', () => {
       // Track interaction state
@@ -228,31 +247,32 @@ function setupBusinessClickInteraction(markerInfo) {
         const previousState = currentBusinessState;
         currentBusinessState = BusinessState.INTERACTING;
         
-        window.open(business.website, '_blank');
+        window.open(business.website!, '_blank');
         
         // Restore previous state
         currentBusinessState = previousState;
       } else {
-        window.open(business.website, '_blank');
+        window.open(business.website!, '_blank');
       }
     });
     
     // List item click opens website (except when clicking on an actual link)
     listItem.style.cursor = 'pointer';
-    listItem.addEventListener('click', (e) => {
+    listItem.addEventListener('click', (e: MouseEvent) => {
       // Check if the click was on an anchor tag to avoid double-opening
-      if (e.target.tagName.toLowerCase() !== 'a') {
+      const target = e.target as HTMLElement;
+      if (target.tagName.toLowerCase() !== 'a') {
         // Track interaction state
         if (currentBusinessState !== BusinessState.ERROR) {
           const previousState = currentBusinessState;
           currentBusinessState = BusinessState.INTERACTING;
           
-          window.open(business.website, '_blank');
+          window.open(business.website!, '_blank');
           
           // Restore previous state
           currentBusinessState = previousState;
         } else {
-          window.open(business.website, '_blank');
+          window.open(business.website!, '_blank');
         }
       }
     });
