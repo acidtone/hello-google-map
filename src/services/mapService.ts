@@ -19,6 +19,8 @@
 import { GOOGLE_MAPS_API_KEY, MAP_CONFIG, MAPS_API_CONFIG } from '../config';
 import { clearBusinessData } from '../actions/businessActions';
 import { initializeGoogleMap, createMapMarker, updateMapView, createMapBounds, fitMapBounds, clearMapMarkers } from '../actions/mapActions';
+import { MarkerOptions } from '../types/map';
+import { Coordinates } from '../types/location';
 
 /**
  * Map state constants
@@ -33,14 +35,17 @@ const MapState = {
 };
 
 // Private variables for the module
-let map = null;
-let markers = []; // Legacy array for backward compatibility
-let userMarkers = []; // Array to store user location markers
-let businessMarkers = []; // Array to store business markers
-let activeInfoWindow = null;
+let map: google.maps.Map | null = null;
+let markers: google.maps.Marker[] = []; // Legacy array for backward compatibility
+let userMarkers: google.maps.Marker[] = []; // Array to store user location markers
+let businessMarkers: google.maps.Marker[] = []; // Array to store business markers
+let activeInfoWindow: google.maps.InfoWindow | null = null;
+
+// Define a type for the MapState values
+type MapStateType = typeof MapState[keyof typeof MapState];
 
 // Track the current state of the map service
-let currentMapState = MapState.UNINITIALIZED;
+let currentMapState: MapStateType = MapState.UNINITIALIZED;
 
 /**
  * Initialize the map with the given element ID
@@ -54,10 +59,10 @@ let currentMapState = MapState.UNINITIALIZED;
  * Now uses the initializeGoogleMap action function for map creation,
  * while maintaining state management in this service.
  * 
- * @param {string} elementId - The ID of the DOM element to contain the map
- * @returns {google.maps.Map} - The initialized map instance
+ * @param elementId - The ID of the DOM element to contain the map
+ * @returns The initialized map instance or null if initialization fails
  */
-function initializeMap(elementId) {
+function initializeMap(elementId: string): google.maps.Map | null {
   // Set state to INITIALIZING at the beginning
   currentMapState = MapState.INITIALIZING;
   
@@ -77,10 +82,11 @@ function initializeMap(elementId) {
         currentMapState = MapState.ERROR;
         console.error('Map initialization failed:', result.error);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       // Set state to ERROR if any exception occurs
       currentMapState = MapState.ERROR;
-      console.error('Map initialization failed:', error);
+      console.error('Map initialization failed:', 
+        error instanceof Error ? error : String(error));
     }
   }
   return map;
@@ -98,9 +104,9 @@ function initializeMap(elementId) {
  * - Could return {state: currentMapState, map: map}
  * - Could throw errors or return null for invalid states
  * 
- * @returns {google.maps.Map|null} - The current map instance or null if not initialized
+ * @returns The current map instance or null if not initialized
  */
-function getMap() {
+function getMap(): google.maps.Map | null {
   // Check if we're in a valid state to return the map
   if (currentMapState === MapState.ERROR) {
     console.warn('Map is in ERROR state and may not be usable');
@@ -119,9 +125,9 @@ function getMap() {
  * This function provides explicit state information that can be used
  * by other modules to make decisions based on the map's current state.
  * 
- * @returns {string} - The current state of the map service
+ * @returns The current state of the map service
  */
-function getMapState() {
+function getMapState(): MapStateType {
   return currentMapState;
 }
 
@@ -137,12 +143,16 @@ function getMapState() {
  * Now uses the createMapMarker action function while maintaining
  * state management in this service.
  * 
- * @param {Object} position - The position (lat/lng) for the marker
- * @param {Object} options - Additional options for the marker
- * @param {string} markerType - Type of marker ('user' or 'business')
- * @returns {google.maps.Marker} - The created marker or null if operation fails
+ * @param position - The position (lat/lng) for the marker
+ * @param options - Additional options for the marker
+ * @param markerType - Type of marker ('user' or 'business')
+ * @returns The created marker or null if operation fails
  */
-function addMarker(position, options = {}, markerType = 'business') {
+function addMarker(
+  position: Coordinates,
+  options: Partial<MarkerOptions> = {}, 
+  markerType: 'user' | 'business' = 'business'
+): google.maps.Marker | null {
   // Check if map is initialized
   if (!map) {
     console.error('Map not initialized');
@@ -178,10 +188,11 @@ function addMarker(position, options = {}, markerType = 'business') {
       console.error('Failed to create marker:', result.error);
       return null;
     }
-  } catch (error) {
+  } catch (error: unknown) {
     // Set state to ERROR if any exception occurs
     currentMapState = MapState.ERROR;
-    console.error('Failed to add marker:', error);
+    console.error('Failed to add marker:', 
+      error instanceof Error ? error : String(error));
     return null;
   }
 }
@@ -198,14 +209,14 @@ function addMarker(position, options = {}, markerType = 'business') {
  * Now uses the clearMapMarkers action function while maintaining
  * state management in this service.
  * 
- * @param {string} type - Type of markers to clear ('all', 'user', or 'business')
+ * @param type - Type of markers to clear ('all', 'user', or 'business')
  */
-function clearMarkers(type = 'all') {
+function clearMarkers(type: 'all' | 'user' | 'business' = 'all'): void {
   // Set state to UPDATING before clearing markers
   currentMapState = MapState.UPDATING;
   
   try {
-    let markersToRemove = [];
+    let markersToRemove: google.maps.Marker[] = [];
     
     if (type === 'all' || type === 'user') {
       markersToRemove = [...markersToRemove, ...userMarkers];
@@ -241,10 +252,11 @@ function clearMarkers(type = 'all') {
       currentMapState = MapState.ERROR;
       console.error('Failed to clear markers:', result.error);
     }
-  } catch (error) {
+  } catch (error: unknown) {
     // Set state to ERROR if any exception occurs
     currentMapState = MapState.ERROR;
-    console.error('Failed to clear markers:', error);
+    console.error('Failed to clear markers:', 
+      error instanceof Error ? error : String(error));
   }
 }
 
@@ -253,8 +265,10 @@ function clearMarkers(type = 'all') {
  * 
  * Now uses the clearBusinessData action function to ensure business data
  * state is properly managed alongside UI marker clearing.
+ * 
+ * @returns void
  */
-function clearBusinessMarkers() {
+function clearBusinessMarkers(): void {
   // Call the pure action function first
   const result = clearBusinessData();
   
@@ -268,8 +282,10 @@ function clearBusinessMarkers() {
 
 /**
  * Clear only user markers from the map
+ * 
+ * @returns void
  */
-function clearUserMarkers() {
+function clearUserMarkers(): void {
   clearMarkers('user');
 }
 
@@ -285,10 +301,10 @@ function clearUserMarkers() {
  * Now uses the updateMapView action function while maintaining
  * state management in this service.
  * 
- * @param {Object} position - The position (lat/lng) to center on
- * @param {number} zoom - The zoom level (optional)
+ * @param position - The position (lat/lng) to center on
+ * @param zoom - The zoom level (optional)
  */
-function setCenter(position, zoom = null) {
+function setCenter(position: Coordinates, zoom: number | null = null): void {
   if (!map) {
     console.error('Map not initialized');
     return;
@@ -309,10 +325,11 @@ function setCenter(position, zoom = null) {
       currentMapState = MapState.ERROR;
       console.error('Failed to update map view:', result.error);
     }
-  } catch (error) {
+  } catch (error: unknown) {
     // Set state to ERROR if any exception occurs
     currentMapState = MapState.ERROR;
-    console.error('Failed to update map view:', error);
+    console.error('Failed to update map view:', 
+      error instanceof Error ? error : String(error));
   }
 }
 
@@ -326,10 +343,10 @@ function setCenter(position, zoom = null) {
  * Now uses the createMapBounds action function while maintaining
  * the same return type for backward compatibility.
  * 
- * @param {Array} positions - Array of positions to include in bounds
- * @returns {google.maps.LatLngBounds} - The created bounds
+ * @param positions - Array of positions to include in bounds
+ * @returns The created bounds
  */
-function createBounds(positions = []) {
+function createBounds(positions: Coordinates[] = []): google.maps.LatLngBounds {
   // Use the createMapBounds action function
   const result = createMapBounds(positions);
   
@@ -362,10 +379,10 @@ function createBounds(positions = []) {
  * Now uses the fitMapBounds action function while maintaining
  * state management in this service.
  * 
- * @param {google.maps.LatLngBounds} bounds - The bounds to fit
- * @param {Object} options - Additional options for fitting bounds
+ * @param bounds - The bounds to fit
+ * @param options - Additional options for fitting bounds
  */
-function fitBounds(bounds, options = {}) {
+function fitBounds(bounds: google.maps.LatLngBounds, options: { padding?: number } = {}): void {
   if (!map) {
     console.error('Map not initialized');
     return;
@@ -386,19 +403,20 @@ function fitBounds(bounds, options = {}) {
       currentMapState = MapState.ERROR;
       console.error('Failed to fit bounds:', result.error);
     }
-  } catch (error) {
+  } catch (error: unknown) {
     // Set state to ERROR if any exception occurs
     currentMapState = MapState.ERROR;
-    console.error('Failed to fit bounds:', error);
+    console.error('Failed to fit bounds:', 
+      error instanceof Error ? error : String(error));
   }
 }
 
 /**
  * Create an info window
- * @param {string} content - The content for the info window
- * @returns {google.maps.InfoWindow} - The created info window
+ * @param content - The content for the info window
+ * @returns The created info window
  */
-function createInfoWindow(content) {
+function createInfoWindow(content: string | Element): google.maps.InfoWindow {
   return new google.maps.InfoWindow({
     content
   });
@@ -406,10 +424,10 @@ function createInfoWindow(content) {
 
 /**
  * Open an info window at the given marker
- * @param {google.maps.InfoWindow} infoWindow - The info window to open
- * @param {google.maps.Marker} marker - The marker to attach the info window to
+ * @param infoWindow - The info window to open
+ * @param marker - The marker to attach the info window to
  */
-function openInfoWindow(infoWindow, marker) {
+function openInfoWindow(infoWindow: google.maps.InfoWindow, marker: google.maps.Marker): void {
   if (activeInfoWindow) {
     activeInfoWindow.close();
   }
@@ -421,7 +439,7 @@ function openInfoWindow(infoWindow, marker) {
 /**
  * Close the active info window if one exists
  */
-function closeActiveInfoWindow() {
+function closeActiveInfoWindow(): void {
   if (activeInfoWindow) {
     activeInfoWindow.close();
     activeInfoWindow = null;
@@ -430,9 +448,9 @@ function closeActiveInfoWindow() {
 
 /**
  * Get all current markers
- * @returns {Array} - Array of current markers
+ * @returns Array of current markers
  */
-function getMarkers() {
+function getMarkers(): google.maps.Marker[] {
   return markers;
 }
 
