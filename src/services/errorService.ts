@@ -14,7 +14,10 @@ const ErrorTypes = {
   GOOGLE_API_KEY_MISSING: 'google_api_key_missing',
   FOURSQUARE_API_KEY_MISSING: 'foursquare_api_key_missing',
   UNKNOWN: 'unknown_error'
-};
+} as const;
+
+// Create type alias for error types
+type ErrorType = typeof ErrorTypes[keyof typeof ErrorTypes];
 
 // Recovery actions (potential state transitions in FSM)
 const RecoveryActions = {
@@ -22,17 +25,35 @@ const RecoveryActions = {
   SHOW_FORM: 'show_manual_entry',
   CONTINUE_PARTIAL: 'continue_with_partial_data',
   NONE: 'no_action'
-};
+} as const;
+
+// Create type alias for recovery actions
+type RecoveryAction = typeof RecoveryActions[keyof typeof RecoveryActions];
+
+// Interface for error information returned by handleError
+interface ErrorInfo {
+  type: ErrorType;
+  message: string;
+  recovery: RecoveryAction;
+}
 
 /**
  * Categorize an error based on its properties and context
- * @param {Error} error - The error object
- * @param {string} context - Context where the error occurred
- * @returns {string} - The categorized error type
+ * @param error - The error object
+ * @param context - Context where the error occurred
+ * @returns The categorized error type
  */
-function categorizeError(error, context) {
+function categorizeError(error: unknown, context: string): ErrorType {
+  // Type guard for errors with code property (like GeolocationPositionError)
+  const hasErrorCode = (err: unknown): err is { code: number } => 
+    typeof err === 'object' && err !== null && 'code' in err && typeof (err as any).code === 'number';
+  
+  // Type guard for errors with message property
+  const hasErrorMessage = (err: unknown): err is { message: string } => 
+    typeof err === 'object' && err !== null && 'message' in err && typeof (err as any).message === 'string';
+  
   // Geolocation errors
-  if (context === 'geolocation') {
+  if (context === 'geolocation' && hasErrorCode(error)) {
     if (error.code === 1) return ErrorTypes.LOCATION_PERMISSION;
     if (error.code === 2 || error.code === 3) return ErrorTypes.LOCATION_UNAVAILABLE;
   }
@@ -45,9 +66,9 @@ function categorizeError(error, context) {
   if (context === 'map_display') return ErrorTypes.UNKNOWN;
   
   // Configuration errors
-  if (context === 'config_validation') {
-    if (error.message?.includes('Google Maps API key')) return ErrorTypes.GOOGLE_API_KEY_MISSING;
-    if (error.message?.includes('Foursquare API key')) return ErrorTypes.FOURSQUARE_API_KEY_MISSING;
+  if (context === 'config_validation' && hasErrorMessage(error)) {
+    if (error.message.includes('Google Maps API key')) return ErrorTypes.GOOGLE_API_KEY_MISSING;
+    if (error.message.includes('Foursquare API key')) return ErrorTypes.FOURSQUARE_API_KEY_MISSING;
   }
   
   return ErrorTypes.UNKNOWN;
@@ -55,11 +76,11 @@ function categorizeError(error, context) {
 
 /**
  * Get appropriate message for an error type
- * @param {string} errorType - Categorized error type
- * @returns {string} - User-friendly error message
+ * @param errorType - Categorized error type
+ * @returns User-friendly error message
  */
-function getErrorMessage(errorType) {
-  const messages = {
+function getErrorMessage(errorType: ErrorType): string {
+  const messages: Record<ErrorType, string> = {
     [ErrorTypes.LOCATION_PERMISSION]: 'Location access denied. Using default location.',
     [ErrorTypes.LOCATION_UNAVAILABLE]: 'Could not determine your location. Using default location.',
     [ErrorTypes.GEOCODING_FAILED]: 'Could not find that location. Please try again.',
@@ -76,10 +97,10 @@ function getErrorMessage(errorType) {
 
 /**
  * Determine appropriate recovery action for an error
- * @param {string} errorType - Categorized error type
- * @returns {string} - Recovery action to take
+ * @param errorType - Categorized error type
+ * @returns Recovery action to take
  */
-function getRecoveryAction(errorType) {
+function getRecoveryAction(errorType: ErrorType): RecoveryAction {
   switch (errorType) {
     case ErrorTypes.LOCATION_PERMISSION:
     case ErrorTypes.LOCATION_UNAVAILABLE:
@@ -101,11 +122,11 @@ function getRecoveryAction(errorType) {
 
 /**
  * Main error handler function - FSM-friendly
- * @param {Error} error - The error object
- * @param {string} context - Context where the error occurred
- * @returns {Object} - Error information with type, message, and recovery action
+ * @param error - The error object
+ * @param context - Context where the error occurred
+ * @returns Error information with type, message, and recovery action
  */
-function handleError(error, context) {
+function handleError(error: unknown, context: string): ErrorInfo {
   const errorType = categorizeError(error, context);
   const message = getErrorMessage(errorType);
   const recovery = getRecoveryAction(errorType);
