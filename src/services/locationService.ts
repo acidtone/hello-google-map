@@ -27,8 +27,8 @@
  * prioritizes tracking critical operations over comprehensive state management.
  */
 
-import { GOOGLE_MAPS_API_KEY } from '../config';
 import { fetchGeolocationData, fetchDefaultLocation, geocodeAddress, reverseGeocode } from '../actions/locationActions';
+import { Location } from '../types/location';
 
 /**
  * Location state constants
@@ -40,10 +40,13 @@ const LocationState = {
   GEOCODING: 'GEOCODING', // Converting coordinates to address or vice versa
   READY: 'READY',         // Location data successfully retrieved
   ERROR: 'ERROR'          // Error occurred during location operations
-};
+} as const;
+
+// Define a type for the location state values
+type LocationStateType = typeof LocationState[keyof typeof LocationState];
 
 // Track the current state of the location service
-let currentLocationState = LocationState.IDLE;
+let currentLocationState: LocationStateType = LocationState.IDLE;
 
 /**
  * Get the current state of the location service
@@ -51,9 +54,9 @@ let currentLocationState = LocationState.IDLE;
  * This function provides explicit state information that can be used
  * by other modules to make decisions based on the location service's current state.
  * 
- * @returns {string} - The current state of the location service
+ * @returns The current state of the location service
  */
-function getLocationState() {
+function getLocationState(): LocationStateType {
   return currentLocationState;
 }
 
@@ -69,9 +72,9 @@ function getLocationState() {
  * Now uses the fetchGeolocationData action function for the API call,
  * while maintaining state management in this service.
  * 
- * @returns {Promise} - Resolves with the user's location or rejects with an error
+ * @returns Promise that resolves with the user's location or rejects with an error
  */
-async function getCurrentLocation() {
+async function getCurrentLocation(): Promise<Location> {
   // Set state to FETCHING at the beginning
   currentLocationState = LocationState.FETCHING;
   
@@ -86,14 +89,20 @@ async function getCurrentLocation() {
     } else {
       // Set state to ERROR on failure
       currentLocationState = LocationState.ERROR;
-      throw result.error;
+      throw result.error; // Directly throw the error object
     }
-  } catch (error) {
+  } catch (error: unknown) {
     // Set state to ERROR on any exception
     currentLocationState = LocationState.ERROR;
-    throw error;
+    throw error; // Re-throw the error without modification
   }
 }
+
+// TODO: Consider refactoring in a second pass to use the Result pattern consistently
+// throughout the application (Option 2). This would involve:
+// 1. Updating service functions to return Result objects
+// 2. Modifying main.ts to handle Result objects instead of using try/catch
+// 3. Creating a more consistent error handling approach across all layers
 
 /**
  * Get postal code from coordinates using Google Maps Geocoding API
@@ -109,11 +118,11 @@ async function getCurrentLocation() {
  * Now uses the reverseGeocode action function while maintaining
  * state management in this service.
  * 
- * @param {number} latitude - The latitude
- * @param {number} longitude - The longitude
- * @returns {Promise<string>} - Resolves with the postal code or 'Unknown'
+ * @param latitude - The latitude
+ * @param longitude - The longitude
+ * @returns Promise that resolves with the postal code or 'Unknown'
  */
-async function getPostalCode(latitude, longitude) {
+async function getPostalCode(latitude: number, longitude: number): Promise<string> {
   // Set state to GEOCODING at the beginning
   currentLocationState = LocationState.GEOCODING;
   
@@ -126,15 +135,16 @@ async function getPostalCode(latitude, longitude) {
       currentLocationState = LocationState.READY;
       
       // The postal code is already extracted in the action function
-      return result.data.postalCode;
+      return result.data.postalCode || 'Unknown';
     } else {
       console.warn('Reverse geocoding error:', result.error);
       // Set state to ERROR for API error
       currentLocationState = LocationState.ERROR;
       return 'Unknown';
     }
-  } catch (error) {
-    console.error('Error getting postal code:', error);
+  } catch (error: unknown) {
+    console.error('Error getting postal code:', 
+      error instanceof Error ? error : String(error));
     // Set state to ERROR on exception
     currentLocationState = LocationState.ERROR;
     return 'Unknown';
@@ -153,10 +163,10 @@ async function getPostalCode(latitude, longitude) {
  * Now uses the geocodeAddress action function while maintaining
  * state management in this service.
  * 
- * @param {string} zipCode - The zip/postal code to geocode
- * @returns {Promise} - Resolves with location data or rejects with an error
+ * @param zipCode - The zip/postal code to geocode
+ * @returns Promise that resolves with location data or rejects with an error
  */
-async function geocodeZipCode(zipCode) {
+async function geocodeZipCode(zipCode: string): Promise<Location> {
   // Set state to GEOCODING at the beginning
   currentLocationState = LocationState.GEOCODING;
   
@@ -177,7 +187,7 @@ async function geocodeZipCode(zipCode) {
       currentLocationState = LocationState.ERROR;
       throw result.error;
     }
-  } catch (error) {
+  } catch (error: unknown) {
     // Set state to ERROR on exception
     currentLocationState = LocationState.ERROR;
     console.error('Error geocoding zip code:', error);
@@ -196,9 +206,9 @@ async function geocodeZipCode(zipCode) {
  * Now uses the fetchDefaultLocation action function while maintaining
  * the same behavior regarding state management.
  * 
- * @returns {Object} - The default location
+ * @returns The default location
  */
-function getDefaultLocation() {
+function getDefaultLocation(): Location {
   // Note: We don't change state here as this is typically called
   // after an error has already occurred and state is already set to ERROR
   
@@ -208,7 +218,8 @@ function getDefaultLocation() {
   if (result.success) {
     return result.data;
   } else {
-    console.error('Error getting default location:', result.error);
+    console.error('Error getting default location:', 
+      result.error instanceof Error ? result.error : String(result.error));
     // Return a hardcoded fallback in case the action fails
     return {
       lat: 40.7128,
