@@ -39,14 +39,23 @@ import {
   getBusinessState
 } from './services/businessService';
 import { processBusinessData } from './actions/businessActions';
+import { Business } from './types/business';
 
 import {
   handleError,
   RecoveryActions
 } from './services/errorService';
 
+// Add TypeScript declaration for window.gm_authFailure and initMap
+declare global {
+  interface Window {
+    gm_authFailure: () => void;
+    initMap: () => void;
+  }
+}
+
 // Google Maps API error handler
-window.gm_authFailure = function() {
+window.gm_authFailure = function(): void {
   const error = new Error('Google Maps API failed to load');
   const errorInfo = handleError(error, 'maps_api');
   
@@ -68,7 +77,7 @@ window.gm_authFailure = function() {
 // Map is now managed by the map service
 
 // Load Google Maps API with the API key from configuration
-function loadGoogleMapsAPI() {
+function loadGoogleMapsAPI(): void {
   try {
     // Validate configuration before proceeding
     validateConfig();
@@ -78,18 +87,18 @@ function loadGoogleMapsAPI() {
     script.async = true;
     script.defer = true;
     document.head.appendChild(script);
-  } catch (error) {
+  } catch (error: unknown) {
     // Handle validation errors in an FSM-friendly way
     const errorInfo = handleError(error, 'config_validation');
     
     // Display error message in the map container
-    const mapElement = document.getElementById('map');
+    const mapElement = document.getElementById('map') as HTMLElement | null;
     if (mapElement) {
       mapElement.innerHTML = `<div class="error-message">${errorInfo.message}</div>`;
     }
     
     // Also update the location span
-    const locationSpan = document.querySelector('.user-location span');
+    const locationSpan = document.querySelector('.user-location span') as HTMLElement | null;
     if (locationSpan) {
       locationSpan.textContent = errorInfo.message;
     }
@@ -99,13 +108,21 @@ function loadGoogleMapsAPI() {
 }
 
 /**
- * Updates UI when map is ready or has initialization errors
- * @param {Object} data - Contains map status and error information
- * @param {boolean} data.isReady - Whether the map is ready
- * @param {Object} [data.error] - Error information if applicable
- * @param {string} [data.mapElementId] - ID of the map container element
+ * Type definition for map initialization UI data
  */
-export function updateMapInitializationUI(data) {
+type MapInitializationData = {
+  isReady: boolean;
+  error?: {
+    message?: string;
+  };
+  mapElementId?: string;
+};
+
+/**
+ * Updates UI when map is ready or has initialization errors
+ * @param data - Contains map status and error information
+ */
+export function updateMapInitializationUI(data: MapInitializationData): void {
   const { isReady, error, mapElementId = 'map' } = data;
   const mapElement = document.getElementById(mapElementId);
   
@@ -138,7 +155,7 @@ export function updateMapInitializationUI(data) {
 }
 
 // Initialize the map - this function is called by the Google Maps API
-window.initMap = function() {
+window.initMap = function(): void {
   try {
     // Initialize the map using the map service
     initializeMap("map");
@@ -153,7 +170,7 @@ window.initMap = function() {
     
     // Setup autocomplete for location predictions
     setupLocationPredictions();
-  } catch (error) {
+  } catch (error: unknown) {
     // Handle map initialization error
     updateMapInitializationUI({
       isReady: false,
@@ -177,7 +194,7 @@ loadGoogleMapsAPI();
  * This function now checks the location state to ensure it matches the expected
  * state at each step of the process.
  */
-async function fetchPostalCode(latitude, longitude) {
+async function fetchPostalCode(latitude: number, longitude: number): Promise<string> {
   try {
     // Use the location service to get the postal code
     const postalCode = await getPostalCode(latitude, longitude);
@@ -188,7 +205,7 @@ async function fetchPostalCode(latitude, longitude) {
     }
     
     return postalCode;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error getting postal code:', error);
     
     // Verify we're in ERROR state as expected
@@ -203,33 +220,48 @@ async function fetchPostalCode(latitude, longitude) {
 // getNearbyBusinesses function has been moved to businessService.js
 
 /**
- * Updates UI with location information
- * @param {Object} data - Contains location information
- * @param {Object} data.coordinates - The coordinates object with lat and lng
- * @param {string} [data.postalCode] - The postal code if available
- * @param {string} [data.source] - The source of the location (e.g., 'Geolocation API')
- * @param {string} [data.state] - The current location state
- * @param {Object} [data.error] - Error information if applicable
+ * Type definition for location UI update data
  */
-export function updateLocationUI(data) {
+type LocationUpdateData = {
+  coordinates?: {
+    lat: number;
+    lng: number;
+  };
+  postalCode?: string;
+  source?: string;
+  state?: string;
+  error?: {
+    message?: string;
+  };
+};
+
+/**
+ * Updates UI with location information
+ * @param data - Contains location information
+ */
+export function updateLocationUI(data: LocationUpdateData): void {
   const { coordinates, postalCode, source = 'Unknown', state, error } = data;
-  const locationSpan = document.querySelector('.user-location span');
+  const locationSpan = document.querySelector('.user-location span') as HTMLElement | null;
   
-  // Handle error state
   if (error) {
-    locationSpan.textContent = error.message || 'Error getting location';
+    // Display error message
+    if (locationSpan) {
+      locationSpan.textContent = error.message || 'Location error';
+    }
     return;
   }
   
-  // Update location text
-  if (coordinates) {
+  if (coordinates && coordinates.lat && coordinates.lng) {
+    // Format coordinates for display
     const lat = Number(coordinates.lat).toFixed(6);
     const lng = Number(coordinates.lng).toFixed(6);
     
-    if (postalCode) {
-      locationSpan.textContent = `Lat: ${lat}, Lng: ${lng} (${postalCode}) (${source})`;
-    } else {
-      locationSpan.textContent = `Lat: ${lat}, Lng: ${lng} (${source})`;
+    if (locationSpan) {
+      if (postalCode) {
+        locationSpan.textContent = `Lat: ${lat}, Lng: ${lng} (${postalCode}) (${source})`;
+      } else {
+        locationSpan.textContent = `Lat: ${lat}, Lng: ${lng} (${source})`;
+      }
     }
     
     // Center map and add marker if coordinates are valid
@@ -240,7 +272,7 @@ export function updateLocationUI(data) {
         url: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png"
       }
     }, 'user');
-  } else {
+  } else if (locationSpan) {
     locationSpan.textContent = 'Location not available';
   }
 }
@@ -261,7 +293,7 @@ export function updateLocationUI(data) {
  * - Could emit events for state transitions
  * - Could handle partial success states more explicitly
  */
-async function displayLocation(latitude, longitude, source = 'Geolocation API') {
+async function displayLocation(latitude: number, longitude: number, source: string = 'Geolocation API'): Promise<void> {
   // Create user location object
   const userLocation = { lat: latitude, lng: longitude };
   
@@ -295,9 +327,9 @@ async function displayLocation(latitude, longitude, source = 'Geolocation API') 
       
       // Display businesses
       displayNearbyBusinesses(businesses, userLocation);
-    } catch (apiError) {
+    } catch (apiError: unknown) {
       // Handle API errors in an FSM-friendly way while maintaining basic map functionality
-      const context = apiError.message?.includes('postal code') ? 'postal_code' : 'business_search';
+      const context = (apiError as {message?: string}).message?.includes('postal code') ? 'postal_code' : 'business_search';
       const errorInfo = handleError(apiError, context);
       
       // Take appropriate recovery action based on the recovery type
@@ -313,7 +345,7 @@ async function displayLocation(latitude, longitude, source = 'Geolocation API') 
         });
       }
     }
-  } catch (error) {
+  } catch (error: unknown) {
     // Handle critical errors in the core map functionality
     const errorInfo = handleError(error, 'map_display');
     
@@ -329,15 +361,39 @@ async function displayLocation(latitude, longitude, source = 'Geolocation API') 
   }
 }
 
+
+
+/**
+ * Type definition for marker info (matching the structure in businessService.ts)
+ */
+type MarkerInfo = {
+  marker: google.maps.Marker;
+  listItem: HTMLElement;
+  default: google.maps.Icon | google.maps.Symbol;
+  highlighted: google.maps.Icon | google.maps.Symbol;
+  business?: Business;
+};
+
+/**
+ * Type definition for business UI update data
+ */
+type BusinessUpdateData = {
+  businesses: Array<Business>;
+  userLocation?: {
+    lat: number;
+    lng: number;
+  };
+  state?: string;
+  error?: {
+    message?: string;
+  };
+};
+
 /**
  * Updates UI with business search results
- * @param {Object} data - Contains businesses and related information
- * @param {Array} data.businesses - Array of business objects
- * @param {Object} data.userLocation - User location coordinates
- * @param {string} [data.state] - Current business state
- * @param {Object} [data.error] - Error information if applicable
+ * @param data - Contains businesses and related information
  */
-export function updateBusinessUI(data) {
+export function updateBusinessUI(data: BusinessUpdateData): void {
   const { businesses, userLocation, state, error } = data;
   
   // Clear business markers, preserving user location marker
@@ -348,7 +404,13 @@ export function updateBusinessUI(data) {
   
   // If not, create it
   if (!businessesContainer) {
-    const mapContainer = document.querySelector('.container');
+    const mapContainer = document.querySelector('.container') as HTMLElement | null;
+    
+    if (!mapContainer) {
+      console.error('Map container not found');
+      return;
+    }
+    
     businessesContainer = document.createElement('div');
     businessesContainer.id = 'nearby-businesses';
     businessesContainer.className = 'businesses-container';
@@ -379,7 +441,7 @@ export function updateBusinessUI(data) {
   const businessList = document.createElement('ul');
   
   // Labels for markers (A, B, C, D)
-  const labels = ['A', 'B', 'C', 'D'];
+  const labels: string[] = ['A', 'B', 'C', 'D'];
   
   // Create bounds for the map to fit all markers
   const bounds = createBounds();
@@ -390,13 +452,13 @@ export function updateBusinessUI(data) {
   }
   
   // Add each business to the list and create markers
-  businesses.forEach((business, index) => {
+  businesses.forEach((business: Business, index: number) => {
     if (index >= labels.length) return; // Only process up to 4 businesses
     
     const listItem = document.createElement('li');
     listItem.className = 'business-item';
     listItem.id = `business-${index}`; // Add unique ID for easier targeting
-    listItem.dataset.index = index;
+    listItem.dataset.index = index.toString(); // Convert number to string for dataset
     
     // Add label (A, B, C, D)
     const label = document.createElement('span');
@@ -409,10 +471,11 @@ export function updateBusinessUI(data) {
     name.textContent = business.name;
     listItem.appendChild(name);
     
-    // Business address
-    if (business.location && business.location.formatted_address) {
+    // Add address if available
+    if (business.location && business.location.formattedAddress && business.location.formattedAddress.length > 0) {
       const address = document.createElement('p');
-      address.textContent = business.location.formatted_address;
+      address.className = 'business-address';
+      address.textContent = business.location.formattedAddress.join(', ');
       listItem.appendChild(address);
     }
     
@@ -426,18 +489,20 @@ export function updateBusinessUI(data) {
       
       // Make the entire list item clickable to go to website
       listItem.style.cursor = 'pointer';
-      listItem.addEventListener('click', (e) => {
+      listItem.addEventListener('click', (e: MouseEvent) => {
         if (e.target !== website) { // Avoid double-click if clicking the actual link
           window.open(business.website, '_blank');
         }
       });
     }
     
-    // Add marker to map if geocodes are available
-    if (business.geocodes && business.geocodes.main) {
+    // Create a marker if we have coordinates
+    if (business.location && business.location.coordinates) {
+      // Use type assertion to handle the mismatch between TypeScript definition and runtime data
+      const coordinates = business.location.coordinates as unknown as { latitude: number; longitude: number };
       const position = {
-        lat: business.geocodes.main.latitude,
-        lng: business.geocodes.main.longitude
+        lat: coordinates.latitude,
+        lng: coordinates.longitude
       };
       
       // Add position to bounds
@@ -458,11 +523,11 @@ export function updateBusinessUI(data) {
       });
       
       // Create a marker info object to store the relationship between marker and list item
-      const markerInfo = {
-        marker: marker,
-        listItem: listItem,
-        defaultIcon: defaultIcon,
-        highlightedIcon: highlightedIcon,
+      const markerInfo: MarkerInfo = {
+        marker: marker as google.maps.Marker, // Assert as non-null since we're inside a conditional
+        listItem: listItem as HTMLElement,
+        default: defaultIcon,
+        highlighted: highlightedIcon,
         business: business
       };
       
@@ -565,7 +630,7 @@ export function updateInteractionUI(data) {
  * This function uses the default location as a fallback but doesn't
  * change the location state since it's typically called after an error.
  */
-async function useDefaultLocation() {
+async function useDefaultLocation(): Promise<void> {
   // Get default location from location service
   const defaultLocation = getDefaultLocation();
   
@@ -591,48 +656,51 @@ async function useDefaultLocation() {
  * This function now checks the location state to ensure it matches the expected
  * state at each step of the process.
  */
-function getUserLocation() {
+async function getUserLocation(): Promise<void> {
   // Clear any existing markers (both user and business)
   clearAllMarkers();
   
-  const locationSpan = document.querySelector('.user-location span');
-  locationSpan.textContent = 'Fetching your location...';
+  const locationSpan = document.querySelector('.user-location span') as HTMLElement | null;
+  if (locationSpan) {
+    locationSpan.textContent = 'Fetching your location...';
+  }
   
-  // Use the location service to get the current location
-  getCurrentLocation()
-    .then(async (position) => {
-      // Check the location state to ensure we're in READY state
-      if (getLocationState() === LocationState.READY) {
-        // Display the coordinates using our display function
-        await displayLocation(position.lat, position.lng);
-      } else {
-        console.warn(`Unexpected location state: ${getLocationState()}`); 
-        // Still proceed with the position we received
-        await displayLocation(position.lat, position.lng);
+  try {
+    // Use the location service to get the current location
+    const position = await getCurrentLocation();
+    
+    // Check the location state to ensure we're in READY state
+    if (getLocationState() === LocationState.READY) {
+      // Display the coordinates using our display function
+      await displayLocation(position.lat, position.lng);
+    } else {
+      console.warn(`Unexpected location state: ${getLocationState()}`);
+      // Still proceed with the position we received
+      await displayLocation(position.lat, position.lng);
+    }
+  } catch (error: unknown) {
+    // Verify we're in ERROR state as expected
+    if (getLocationState() === LocationState.ERROR) {
+      // Handle errors in an FSM-friendly way
+      const errorInfo = handleError(error, 'geolocation');
+      
+      // Take appropriate recovery action based on the recovery type
+      if (errorInfo.recovery === RecoveryActions.USE_DEFAULT_LOCATION) {
+        await useDefaultLocation();
       }
-    })
-    .catch(async (error) => {
-      // Verify we're in ERROR state as expected
-      if (getLocationState() === LocationState.ERROR) {
-        // Handle errors in an FSM-friendly way
-        const errorInfo = handleError(error, 'geolocation');
+    } else {
+      console.error(`Unexpected location state during error: ${getLocationState()}`);
+      // Handle the error anyway
+      const errorInfo = handleError(error, 'geolocation');
+      if (locationSpan) {
         locationSpan.textContent = errorInfo.message;
-        
-        // Take appropriate recovery action based on the recovery type
-        if (errorInfo.recovery === RecoveryActions.USE_DEFAULT_LOCATION) {
-          await useDefaultLocation();
-        }
-      } else {
-        console.error(`Unexpected location state during error: ${getLocationState()}`);
-        // Handle the error anyway
-        const errorInfo = handleError(error, 'geolocation');
-        locationSpan.textContent = errorInfo.message;
-        
-        if (errorInfo.recovery === RecoveryActions.USE_DEFAULT_LOCATION) {
-          await useDefaultLocation();
-        }
       }
-    });
+      
+      if (errorInfo.recovery === RecoveryActions.USE_DEFAULT_LOCATION) {
+        await useDefaultLocation();
+      }
+    }
+  }
 }
 
 /**
@@ -648,28 +716,34 @@ function getUserLocation() {
  * This function now checks the location state to ensure it matches the expected
  * state at each step of the process.
  */
-async function searchByZipCode(zipCode) {
-  const locationSpan = document.querySelector('.user-location span');
+async function searchByZipCode(zipCode: string): Promise<void> {
+  const locationSpan = document.querySelector('.user-location span') as HTMLElement | null;
+  
+  if (!locationSpan) {
+    console.error('Location span element not found');
+    return;
+  }
   
   try {
+    // Update the UI to show we're searching
     locationSpan.textContent = `Searching for ${zipCode}...`;
     
-    // Clear any existing markers (both user and business for a new search)
+    // Clear any existing markers
     clearAllMarkers();
     
-    // Use location service to geocode the zip code
-    const locationData = await geocodeZipCode(zipCode);
+    // Use the location service to geocode the zip code
+    const location = await geocodeZipCode(zipCode);
     
     // Verify we're in the expected state after geocoding
     if (getLocationState() === LocationState.READY) {
-      // Display the location and update the map
-      await displayLocation(locationData.lat, locationData.lng, `Zip/Postal Code: ${zipCode}`);
+      // Display the location using our display function
+      await displayLocation(location.lat, location.lng, `Zip Code: ${zipCode}`);
     } else {
       console.warn(`Unexpected location state after geocoding: ${getLocationState()}`);
-      // Still proceed with the location data we received
-      await displayLocation(locationData.lat, locationData.lng, `Zip/Postal Code: ${zipCode}`);
+      // Still proceed with the location we received
+      await displayLocation(location.lat, location.lng, `Zip Code: ${zipCode}`);
     }
-  } catch (error) {
+  } catch (error: unknown) {
     // Verify we're in ERROR state as expected
     if (getLocationState() === LocationState.ERROR) {
       // Handle errors in an FSM-friendly way
@@ -678,8 +752,7 @@ async function searchByZipCode(zipCode) {
       
       // Take appropriate recovery action based on the recovery type
       if (errorInfo.recovery === RecoveryActions.SHOW_FORM) {
-        // Focus on the zip input to encourage the user to try again
-        const zipInput = document.getElementById('zip-input');
+        const zipInput = document.getElementById('zip-input') as HTMLInputElement | null;
         if (zipInput) {
           zipInput.focus();
         }
@@ -691,7 +764,7 @@ async function searchByZipCode(zipCode) {
       locationSpan.textContent = errorInfo.message;
       
       if (errorInfo.recovery === RecoveryActions.SHOW_FORM) {
-        const zipInput = document.getElementById('zip-input');
+        const zipInput = document.getElementById('zip-input') as HTMLInputElement | null;
         if (zipInput) {
           zipInput.focus();
         }
