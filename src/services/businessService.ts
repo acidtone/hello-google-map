@@ -22,7 +22,7 @@ import { fetchBusinessData } from '../actions/businessActions';
 import { Business } from '../types/business';
 
 // Define types for marker interactions
-type MarkerInfo = {
+export type MarkerInfo = {
   marker: google.maps.Marker;
   listItem: HTMLElement;
   default: google.maps.Icon | google.maps.Symbol;
@@ -42,7 +42,7 @@ const BusinessState = {
   INTERACTING: 'INTERACTING' // User is interacting with business markers/listings
 } as const;
 
-type BusinessStateType = typeof BusinessState[keyof typeof BusinessState];
+export type BusinessStateType = typeof BusinessState[keyof typeof BusinessState];
 
 // Track the current state of the business service
 let currentBusinessState: BusinessStateType = BusinessState.IDLE;
@@ -165,7 +165,7 @@ function createBusinessMarkerIcons(): {
  * @param markerInfo - Object containing marker, listItem, and icon information
  */
 function setupMarkerListItemInteraction(markerInfo: MarkerInfo): void {
-  const { marker, listItem, default: defaultIcon, highlighted: highlightedIcon } = markerInfo;
+  const { marker, listItem } = markerInfo;
   
   // List item hover effects
   listItem.addEventListener('mouseenter', () => {

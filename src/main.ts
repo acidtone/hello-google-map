@@ -8,16 +8,12 @@ import {
 
 import {
   initializeMap,
-  getMap,
   addMarker,
   clearAllMarkers,
   clearBusinessMarkers,
-  clearUserMarkers,
   setCenter,
   createBounds,
   fitBounds,
-  createInfoWindow,
-  openInfoWindow,
   getMarkers
 } from './services/mapService';
 
@@ -36,7 +32,9 @@ import {
   setupMarkerListItemInteraction,
   setupBusinessClickInteraction,
   BusinessState,
-  getBusinessState
+  getBusinessState,
+  MarkerInfo,
+  BusinessStateType
 } from './services/businessService';
 import { processBusinessData } from './actions/businessActions';
 import { Business } from './types/business';
@@ -60,13 +58,13 @@ window.gm_authFailure = function(): void {
   const errorInfo = handleError(error, 'maps_api');
   
   // Display error message in the map container
-  const mapElement = document.getElementById('map');
+  const mapElement = document.getElementById('map') as HTMLElement | null;
   if (mapElement) {
     mapElement.innerHTML = `<div class="error-message">${errorInfo.message}</div>`;
   }
   
   // Also update the location span
-  const locationSpan = document.querySelector('.user-location span');
+  const locationSpan = document.querySelector('.user-location span') as HTMLElement | null;
   if (locationSpan) {
     locationSpan.textContent = errorInfo.message;
   }
@@ -124,7 +122,7 @@ type MapInitializationData = {
  */
 export function updateMapInitializationUI(data: MapInitializationData): void {
   const { isReady, error, mapElementId = 'map' } = data;
-  const mapElement = document.getElementById(mapElementId);
+  const mapElement = document.getElementById(mapElementId) as HTMLElement | null;
   
   if (!mapElement) return;
   
@@ -132,7 +130,10 @@ export function updateMapInitializationUI(data: MapInitializationData): void {
     // Display error message in the map container
     const errorDiv = document.createElement('div');
     errorDiv.className = 'map-error';
-    errorDiv.textContent = error.message || 'Error initializing map';
+    // Use type guard to safely access error.message
+    errorDiv.textContent = typeof error === 'object' && error !== null && 'message' in error && typeof (error as { message: unknown }).message === 'string'
+      ? (error as { message: string }).message
+      : 'Error initializing map';
     mapElement.innerHTML = '';
     mapElement.appendChild(errorDiv);
     return;
@@ -141,7 +142,7 @@ export function updateMapInitializationUI(data: MapInitializationData): void {
   if (isReady) {
     // Map is ready, we could add any UI indicators here if needed
     // For example, remove any loading indicators
-    const loadingIndicator = document.querySelector('.map-loading');
+    const loadingIndicator = document.querySelector('.map-loading') as HTMLElement | null;
     if (loadingIndicator) {
       loadingIndicator.remove();
     }
@@ -174,7 +175,9 @@ window.initMap = function(): void {
     // Handle map initialization error
     updateMapInitializationUI({
       isReady: false,
-      error: { message: 'Failed to initialize map: ' + error.message }
+      error: { message: 'Failed to initialize map: ' + (typeof error === 'object' && error !== null && 'message' in error && typeof (error as { message: unknown }).message === 'string' 
+        ? (error as { message: string }).message 
+        : 'Unknown error') }
     });
   }
 };
@@ -240,13 +243,16 @@ type LocationUpdateData = {
  * @param data - Contains location information
  */
 export function updateLocationUI(data: LocationUpdateData): void {
-  const { coordinates, postalCode, source = 'Unknown', state, error } = data;
+  const { coordinates, postalCode, source = 'Unknown', error } = data;
   const locationSpan = document.querySelector('.user-location span') as HTMLElement | null;
   
   if (error) {
     // Display error message
     if (locationSpan) {
-      locationSpan.textContent = error.message || 'Location error';
+      // Use type guard to safely access error.message
+      locationSpan.textContent = typeof error === 'object' && error !== null && 'message' in error && typeof (error as { message: unknown }).message === 'string'
+        ? (error as { message: string }).message
+        : 'Location error';
     }
     return;
   }
@@ -364,17 +370,6 @@ async function displayLocation(latitude: number, longitude: number, source: stri
 
 
 /**
- * Type definition for marker info (matching the structure in businessService.ts)
- */
-type MarkerInfo = {
-  marker: google.maps.Marker;
-  listItem: HTMLElement;
-  default: google.maps.Icon | google.maps.Symbol;
-  highlighted: google.maps.Icon | google.maps.Symbol;
-  business?: Business;
-};
-
-/**
  * Type definition for business UI update data
  */
 type BusinessUpdateData = {
@@ -383,7 +378,7 @@ type BusinessUpdateData = {
     lat: number;
     lng: number;
   };
-  state?: string;
+  state?: BusinessStateType;
   error?: {
     message?: string;
   };
@@ -400,7 +395,7 @@ export function updateBusinessUI(data: BusinessUpdateData): void {
   clearBusinessMarkers();
   
   // Check if the businesses container already exists
-  let businessesContainer = document.getElementById('nearby-businesses');
+  let businessesContainer = document.getElementById('nearby-businesses') as HTMLElement | null;
   
   // If not, create it
   if (!businessesContainer) {
@@ -463,7 +458,7 @@ export function updateBusinessUI(data: BusinessUpdateData): void {
     // Add label (A, B, C, D)
     const label = document.createElement('span');
     label.className = 'business-label';
-    label.textContent = labels[index];
+    label.textContent = labels[index] || '';
     listItem.appendChild(label);
     
     // Business name
@@ -514,11 +509,11 @@ export function updateBusinessUI(data: BusinessUpdateData): void {
       // Create marker with label using map service
       const marker = addMarker(position, {
         label: {
-          text: labels[index],
+          text: labels[index] || '',
           color: '#FFFFFF',
           fontWeight: 'bold'
         },
-        icon: defaultIcon,
+        icon: defaultIcon as unknown as google.maps.Icon,
         title: business.name
       });
       
@@ -566,7 +561,7 @@ export function updateBusinessUI(data: BusinessUpdateData): void {
  * Now uses the processBusinessData action function to prepare business data
  * before updating the UI.
  */
-function displayNearbyBusinesses(businesses, userLocation) {
+function displayNearbyBusinesses(businesses: Business[], userLocation: { lat: number; lng: number }): void {
   // Check the current business state before displaying
   const currentState = getBusinessState();
   
@@ -592,27 +587,30 @@ function displayNearbyBusinesses(businesses, userLocation) {
   }
 }
 
+// Define the type for interaction update data
+type InteractionUpdateData = {
+  markerInfo: MarkerInfo;
+  highlight: boolean;
+  state?: string;
+};
+
 /**
  * Updates UI during user interactions with businesses/markers
- * @param {Object} data - Contains interaction details
- * @param {Object} data.markerInfo - Object containing marker, listItem, and icon information
- * @param {boolean} data.highlight - Whether to highlight or unhighlight
- * @param {string} [data.state] - Current interaction state
+ * @param data - Contains interaction details
  */
-export function updateInteractionUI(data) {
-  const { markerInfo, highlight, state } = data;
-  const { marker, listItem, defaultIcon, highlightedIcon } = markerInfo;
+export function updateInteractionUI(data: InteractionUpdateData): void {
+  const { markerInfo, highlight } = data;
   
   if (highlight) {
     // Highlight marker
-    marker.setIcon(highlightedIcon);
+    markerInfo.marker.setIcon(markerInfo.highlighted);
     // Highlight list item
-    listItem.classList.add('highlighted');
+    markerInfo.listItem.classList.add('highlighted');
   } else {
     // Unhighlight marker
-    marker.setIcon(defaultIcon);
+    markerInfo.marker.setIcon(markerInfo.default);
     // Unhighlight list item
-    listItem.classList.remove('highlighted');
+    markerInfo.listItem.classList.remove('highlighted');
   }
 }
 
@@ -774,8 +772,13 @@ async function searchByZipCode(zipCode: string): Promise<void> {
 }
 
 // Function to set up location predictions using the modern Places Autocomplete widget
-function setupLocationPredictions() {
-  const zipInput = document.getElementById('zip-input');
+function setupLocationPredictions(): void {
+  const zipInput = document.getElementById('zip-input') as HTMLInputElement | null;
+  
+  if (!zipInput) {
+    console.error('Zip input element not found');
+    return;
+  }
   
   // This function is only called after the API is ready via the callback=initMap parameter
   
@@ -785,14 +788,14 @@ function setupLocationPredictions() {
   const autocomplete = new google.maps.places.Autocomplete(zipInput, AUTOCOMPLETE_CONFIG);
   
   // When a place is selected, update the map
-  autocomplete.addListener('place_changed', () => {
+  autocomplete.addListener('place_changed', (): void => {
     const place = autocomplete.getPlace();
     
-    if (!place.geometry) {
+    if (!place.geometry || !place.geometry.location) {
       // User entered the name of a place that was not suggested
       // or pressed Enter before selecting a suggestion
       console.log('No details available for input: ' + place.name);
-        if (zipInput.value.trim()) {
+      if (zipInput.value.trim()) {
         searchByZipCode(zipInput.value.trim());
       }
       return;
@@ -807,10 +810,10 @@ function setupLocationPredictions() {
   });
   
   // Prevent form submission when selecting a place with Enter key
-  zipInput.addEventListener('keydown', (e) => {
+  zipInput.addEventListener('keydown', (e: KeyboardEvent): void => {
     if (e.key === 'Enter') {
       // If there are active suggestions, let the Autocomplete widget handle it
-      if (document.querySelector('.pac-container')?.style.display !== 'none') {
+      if ((document.querySelector('.pac-container') as HTMLElement | null)?.style.display !== 'none') {
         e.preventDefault();
       }
     }
@@ -818,26 +821,29 @@ function setupLocationPredictions() {
 }
 
 // Set up event listeners when the page loads
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', (): void => {
   // Call getUserLocation on page load
   getUserLocation();
   
   // Add event listener for the Locate Me button
-  const locateMeButton = document.getElementById('locate-me');
+  const locateMeButton = document.getElementById('locate-me') as HTMLElement | null;
   if (locateMeButton) {
     locateMeButton.addEventListener('click', getUserLocation);
   }
   
   // Add event listener for the zip code search form
-  const zipSearchForm = document.getElementById('zip-search-form');
+  const zipSearchForm = document.getElementById('zip-search-form') as HTMLFormElement | null;
   if (zipSearchForm) {
-    zipSearchForm.addEventListener('submit', (event) => {
+    zipSearchForm.addEventListener('submit', (event: Event): void => {
       event.preventDefault();
-      const zipInput = document.getElementById('zip-input');
-      const zipCode = zipInput.value.trim();
+      const zipInput = document.getElementById('zip-input') as HTMLInputElement | null;
       
-      if (zipCode) {
-        searchByZipCode(zipCode);
+      if (zipInput) {
+        const zipCode = zipInput.value.trim();
+        
+        if (zipCode) {
+          searchByZipCode(zipCode);
+        }
       }
     });
   }
