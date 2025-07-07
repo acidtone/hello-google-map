@@ -46,11 +46,11 @@ interface ErrorInfo {
 function categorizeError(error: unknown, context: string): ErrorType {
   // Type guard for errors with code property (like GeolocationPositionError)
   const hasErrorCode = (err: unknown): err is { code: number } => 
-    typeof err === 'object' && err !== null && 'code' in err && typeof (err as any).code === 'number';
+    typeof err === 'object' && err !== null && 'code' in err && typeof (err as { code: unknown }).code === 'number';
   
   // Type guard for errors with message property
   const hasErrorMessage = (err: unknown): err is { message: string } => 
-    typeof err === 'object' && err !== null && 'message' in err && typeof (err as any).message === 'string';
+    typeof err === 'object' && err !== null && 'message' in err && typeof (err  as { message: unknown }).message === 'string';
   
   // Geolocation errors
   if (context === 'geolocation' && hasErrorCode(error)) {
