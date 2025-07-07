@@ -4,6 +4,7 @@
  */
 
 import { Location } from './types/location';
+import { validateEnvironment, getEnvVar, hasEnvVar } from './utils/env';
 
 // Define types for configuration objects
 type MapConfig = {
@@ -24,9 +25,9 @@ type AutocompleteConfig = {
   fields: string[];
 };
 
-// Get API keys from environment variables
-const GOOGLE_MAPS_API_KEY: string = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string;
-const FOURSQUARE_API_KEY: string = import.meta.env.VITE_FOURSQUARE_API_KEY as string || 'PLACEHOLDER_API_KEY';
+// Get API keys from environment variables using the validation utility
+const GOOGLE_MAPS_API_KEY: string = getEnvVar('VITE_GOOGLE_MAPS_API_KEY');
+const FOURSQUARE_API_KEY: string = getEnvVar('VITE_FOURSQUARE_API_KEY', 'PLACEHOLDER_API_KEY');
 
 // Default map settings
 const DEFAULT_LOCATION: Location = {
@@ -69,13 +70,11 @@ export {
  * @returns true if configuration is valid
  */
 export function validateConfig(): boolean {
-  // Check for Google Maps API key (critical)
-  if (!GOOGLE_MAPS_API_KEY) {
-    throw new Error('Google Maps API key is missing. Please check your .env file.');
-  }
+  // Use the centralized environment validation
+  validateEnvironment();
   
-  // Check for Foursquare API key (non-critical but needed for business search)
-  if (!FOURSQUARE_API_KEY || FOURSQUARE_API_KEY === 'PLACEHOLDER_API_KEY') {
+  // Additional validation for Foursquare API key (non-critical but needed for business search)
+  if (!hasEnvVar('VITE_FOURSQUARE_API_KEY') || FOURSQUARE_API_KEY === 'PLACEHOLDER_API_KEY') {
     throw new Error('Foursquare API key is missing. Please check your .env file.');
   }
   
