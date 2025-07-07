@@ -331,6 +331,12 @@ async function displayLocation(latitude: number, longitude: number, source: stri
         businessesPromise
       ]);
       
+      // Update the zip input field if postal code is found
+      const zipInput = document.getElementById('zip-input') as HTMLInputElement | null;
+      if (zipInput && postalCode) {
+        zipInput.value = postalCode;
+      }
+      
       // Update UI with complete results
       updateLocationUI({
         coordinates: userLocation,
@@ -814,6 +820,22 @@ function setupLocationPredictions(): void {
     // Get the location coordinates
     const latitude = place.geometry.location.lat();
     const longitude = place.geometry.location.lng();
+    
+    // Extract postal code from address components if available
+    let postalCode = '';
+    if (place.address_components) {
+      for (const component of place.address_components) {
+        if (component.types.includes('postal_code')) {
+          postalCode = component.long_name;
+          break;
+        }
+      }
+    }
+    
+    // Set the input field to just the postal code if found, otherwise keep the original value
+    if (postalCode) {
+      zipInput.value = postalCode;
+    }
     
     // Display the location and update the map
     displayLocation(latitude, longitude, `Location: ${place.formatted_address || place.name}`);
