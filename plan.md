@@ -300,8 +300,8 @@ const machine = createMachine({
 - [x] Update `.gitignore`
 - [x] Add FSM state constants and transitions
 - [x] Add bundle analyzer
-- [ ] Add environment validation
-- [ ] Update documentation (`README.md`, `docs/api.md`, `DEVELOPMENT.md`)
+- [x] Add environment validation
+- [x] Update documentation (`README.md`, `docs/api.md`, `DEVELOPMENT.md`)
 
 ---
 
