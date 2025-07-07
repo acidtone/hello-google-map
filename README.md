@@ -11,19 +11,39 @@ A lightweight Google Maps application with location search, geocoding, and nearb
 - Nearby business search with Foursquare Places API
 - Responsive marker and list interactions
 
+## Quick Start
+
+### Prerequisites
+- Node.js (v18 or higher)
+- Google Maps API key
+- Foursquare API key
+
+### Setup
+```bash
+# Clone and install
+git clone <repository-url>
+cd hello-maps
+npm install
+
+# Set up environment variables
+cp .env.example .env
+# Edit .env and add your API keys
+
+# Start development
+npm run dev
+```
+
 ## Architecture
 
 The application follows a modular service-based architecture with FSM-compatible patterns for future state machine integration.
 
 ### Core Services
-
 - **Map Service**: Handles map initialization and marker management
 - **Location Service**: Manages geolocation and geocoding operations
 - **Business Service**: Fetches and displays nearby businesses
 - **Error Service**: Provides FSM-compatible error handling
 
 ### Application Flow
-
 The application follows a unified process flow with multiple entry points that converge to a common sequence:
 
 ```
@@ -40,219 +60,90 @@ The application follows a unified process flow with multiple entry points that c
 │                   │     │                   │
 └─────────┬─────────┘     └───────────────────┘
           │
-          │  ┌─────────────────────────────────────────────┐
-          │  │                                             │
-          │  │  Entry Points:                              │
-          │  │  1. Page Load (auto)                        │
-          │  │  2. "Locate Me" Button                      │
-          │  │  3. Postal Code Submission                  │
-          │  │  4. Autocomplete Selection                  │
-          │  │                                             │
-          │  └─────────────────────────────────────────────┘
-          │
           ▼
 ┌───────────────────┐     ┌───────────────────┐
 │                   │     │                   │
-│  FETCHING_LOCATION│────▶│  LOCATION_ERROR   │────┐
-│                   │     │                   │    │
-└─────────┬─────────┘     └─────────┬─────────┘    │
-          │                         │              │
-          │  ┌─────────────────────────────────────────────┐
-          │  │                                             │
-          │  │  Location Fetching Steps:                   │
-          │  │  1. Check geolocation API availability      │
-          │  │  2. Request user permission                 │
-          │  │  3. Retrieve coordinates                    │
-          │  │  4. Handle timeout/errors                   │
-          │  │  5. Format location data                    │
-          │  │                                             │
-          │  └─────────────────────────────────────────────┘
-          │
-          │                         ▼              │
-          │               ┌───────────────────┐    │
-          │               │                   │    │
-          │               │  USE_DEFAULT      │    │
-          │               │  LOCATION         │    │
-          │               │                   │    │
-          │               └─────────┬─────────┘    │
-          │                         │              │
-          ▼                         │              │
-┌───────────────────┐               │              │
-│                   │               │              │
-│  LOCATION_READY   │◀──────────────┘              │
-│                   │                              │
-└─────────┬─────────┘                              │
-          │                                        │
-          ▼                                        │
-┌───────────────────┐     ┌───────────────────┐    │
-│                   │     │                   │    │
-│  SEARCHING        │────▶│  SEARCH_ERROR     │    │
-│  BUSINESSES       │     │                   │    │
-│                   │     └─────────┬─────────┘    │
-└─────────┬─────────┘               │              │
-          │                         │              │
-          │                         ▼              │
-          │               ┌───────────────────┐    │
-          │               │                   │    │
-          │               │  PARTIAL_RESULTS  │    │
-          │               │                   │    │
-          │               └─────────┬─────────┘    │
-          │                         │              │
-          ▼                         │              │
-┌───────────────────┐               │              │
-│                   │               │              │
-│  BUSINESSES_READY │◀──────────────┘              │
-│                   │                              │
-└─────────┬─────────┘                              │
-          │                                        │
-          ▼                                        │
-┌───────────────────┐                              │
-│                   │                              │
-│  DISPLAY_COMPLETE │◀─────────────────────────────┘
-│                   │
-└───────────────────┘
+│  FETCHING_LOCATION│────▶│  LOCATION_ERROR   │
+│                   │     │                   │
+└─────────┬─────────┘     └─────────┬─────────┘
+          │                         │
+          ▼                         ▼
+┌───────────────────┐     ┌───────────────────┐
+│                   │     │                   │
+│  LOCATION_READY   │────▶│  SEARCHING        │
+│                   │     │  BUSINESSES       │
+└───────────────────┘     └─────────┬─────────┘
+                                   │
+                                   ▼
+                        ┌───────────────────┐
+                        │                   │
+                        │  BUSINESSES_READY │
+                        │                   │
+                        └─────────┬─────────┘
+                                   │
+                                   ▼
+                        ┌───────────────────┐
+                        │                   │
+                        │  DISPLAY_COMPLETE │
+                        │                   │
+                        └───────────────────┘
 ```
 
-## State Descriptions
-
-### Initial States
-- **INITIALIZING**: Loading Google Maps API, validating config
-- **MAP_READY**: Map initialized and ready for operations
-- **CONFIG_ERROR**: API keys missing or invalid
-- **MAP_ERROR**: Google Maps API failed to load or initialize
-
-### Location States
-- **FETCHING_LOCATION**: Getting user location or geocoding postal code
-- **LOCATION_READY**: Valid location obtained, ready to display
-- **LOCATION_ERROR**: Failed to get location
-- **USE_DEFAULT_LOCATION**: Fallback to default location
-
-### Business States
-- **SEARCHING_BUSINESSES**: Fetching nearby businesses
-- **BUSINESSES_READY**: Businesses retrieved and ready to display
-- **SEARCH_ERROR**: Failed to get businesses
-- **PARTIAL_RESULTS**: Some results available (e.g., Foursquare API key missing)
-
-### Final State
-- **DISPLAY_COMPLETE**: Location and available businesses displayed on map
-
-## FSM-Compatible Error Handling
-
-The application implements a lightweight FSM-compatible error handling system:
-
-1. **Error Types**: Predefined error types for different scenarios
-2. **Error Categorization**: Errors are categorized by severity and context
-3. **Recovery Actions**: Each error type has an associated recovery action
-4. **User Feedback**: Clear, read-only error messages guide the user
-
-Example error handling pattern:
-```javascript
-try {
-  // Operation that might fail
-} catch (error) {
-  const errorInfo = handleError(error, 'context_name');
-  
-  // Take appropriate recovery action based on the recovery type
-  if (errorInfo.recovery === RecoveryActions.USE_DEFAULT_LOCATION) {
-    await useDefaultLocation();
-  }
-}
-```
-
-## Setup and Configuration
-
-### Prerequisites
-
-- Node.js and npm
-- API Keys:
-  - Google Maps JavaScript API (with Places and Geocoding enabled)
-  - Foursquare Places API
-
-### Environment Variables
-
-Create a `.env` file in the project root with:
-
-```
-VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
-VITE_FOURSQUARE_API_KEY=your_foursquare_api_key
-```
-
-### Installation
-
-```bash
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-
-# Build for production
-npm run build
-```
-
-## Future FSM Integration
-
-The codebase has been prepared for future FSM integration through:
-
-1. **Documented State Transitions**: Each function includes FSM state pattern documentation
-2. **Consistent Error Handling**: FSM-compatible error handling throughout the application
-3. **Modular Architecture**: Clear separation of concerns for easier state management
-4. **Unified Process Flow**: Well-defined states and transitions
-
-To integrate a full FSM library in the future:
-1. Define explicit state constants
-2. Implement state transition functions
-3. Add state subscribers for UI updates
-4. Refactor service functions to use the state machine
+For detailed state descriptions and implementation details, see the [FSM Integration Guide](docs/fsm-integration.md).
 
 ## Bundle Size
 
 The application maintains a small bundle size while implementing robust functionality:
-- JavaScript: ~12KB
-- CSS: ~2.8KB
-- Total: ~14.8KB
+- **Total**: ~28KB (10.8KB gzipped)
+- **JavaScript**: ~24.9KB
+- **CSS**: ~3.3KB
 
-This lightweight footprint is achieved through:
-- Minimal dependencies
-- Modular code structure
-- Efficient error handling
-- No external state management libraries
+This lightweight footprint is achieved through minimal dependencies, modular code structure, and efficient error handling.
 
 ## Documentation
 
-### External API References
+This project includes comprehensive documentation organized for different use cases:
+
+### 📚 Detailed Guides
+- **[Development Guide](DEVELOPMENT.md)** - Complete setup, workflow, and troubleshooting
+- **[API Documentation](docs/api.md)** - External API integration details
+- **[FSM Integration Guide](docs/fsm-integration.md)** - State management and future FSM library migration
+
+### 🔗 External References
 - [Google Maps JavaScript API](https://developers.google.com/maps/documentation/javascript)
-- [Google Places API](https://developers.google.com/maps/documentation/javascript/places)
-- [Google Geocoding API](https://developers.google.com/maps/documentation/javascript/geocoding)
 - [Foursquare Places API](https://developer.foursquare.com/docs/places-api)
 
-### Key API Features Used
-- **Places Autocomplete**: Location search with suggestions
-- **Geocoding**: Postal code to coordinates conversion
-- **Nearby Search**: Business discovery around locations
-- **Markers & InfoWindows**: Business display on map
+## FSM Integration
 
-## Development Workflow
+The codebase is prepared for future state machine library integration:
 
-### Getting Started
-1. Clone and install dependencies
-2. Set up environment variables
-3. Start development server
-4. Open browser to `http://localhost:5173`
+- **State Constants**: Defined in `src/types/fsm.ts`
+- **State Manager**: Lightweight implementation in `src/utils/stateManager.ts`
+- **Error Handling**: FSM-compatible patterns throughout
+- **Migration Path**: Ready for Robot3, XState, or other FSM libraries
 
-### Common Development Tasks
-- **Adding new map features**: See `src/services/mapService.js`
-- **Modifying business search**: See `src/services/businessService.js`
-- **Error handling**: See `src/services/errorService.js`
-- **State management**: See FSM patterns in `src/services/`
+See the [FSM Integration Guide](docs/fsm-integration.md) for detailed implementation and migration examples.
 
-### Debugging Tips
-- Check browser console for API errors
-- Verify API keys in `.env` file
-- Test geolocation permissions
+## Available Scripts
+
+```bash
+npm run dev      # Start development server
+npm run build    # Build for production (includes bundle analysis)
+npm run preview  # Preview production build
+```
+
+## Environment Variables
+
+Required environment variables (see `.env.example`):
+```bash
+VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
+VITE_FOURSQUARE_API_KEY=your_foursquare_api_key
+```
 
 ## Known Issues
 
 - Geolocation may timeout on slow connections
 - Foursquare API requires HTTPS in production
 - Google Maps API has usage quotas
+
+For detailed troubleshooting, see the [Development Guide](DEVELOPMENT.md).
