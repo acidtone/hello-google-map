@@ -77,41 +77,85 @@ export const AppState = {
 
 export type AppStateType = typeof AppState[keyof typeof AppState];
 
-export const StateTransitions = {
+export const StateTransitions: Record<AppStateType, readonly AppStateType[]> = {
   [AppState.INITIALIZING]: [AppState.CONFIG_ERROR, AppState.MAP_READY],
   [AppState.MAP_READY]: [AppState.MAP_ERROR, AppState.FETCHING_LOCATION],
   [AppState.FETCHING_LOCATION]: [AppState.LOCATION_ERROR, AppState.LOCATION_READY, AppState.USE_DEFAULT_LOCATION],
   [AppState.LOCATION_READY]: [AppState.SEARCHING_BUSINESSES],
   [AppState.SEARCHING_BUSINESSES]: [AppState.SEARCH_ERROR, AppState.BUSINESSES_READY, AppState.PARTIAL_RESULTS],
   [AppState.BUSINESSES_READY]: [AppState.DISPLAY_COMPLETE],
-  [AppState.PARTIAL_RESULTS]: [AppState.DISPLAY_COMPLETE]
+  [AppState.PARTIAL_RESULTS]: [AppState.DISPLAY_COMPLETE],
+  [AppState.USE_DEFAULT_LOCATION]: [AppState.SEARCHING_BUSINESSES],
+  [AppState.CONFIG_ERROR]: [],
+  [AppState.MAP_ERROR]: [],
+  [AppState.LOCATION_ERROR]: [AppState.USE_DEFAULT_LOCATION],
+  [AppState.SEARCH_ERROR]: [AppState.DISPLAY_COMPLETE],
+  [AppState.DISPLAY_COMPLETE]: []
 } as const;
-```
 
-**2. Add State Management Hook (if using React in the future)**
-
-Create `src/hooks/useAppState.ts`:
-```typescript
-import { useState, useCallback } from 'react';
-import { AppState, AppStateType } from '../types/fsm';
-
-export const useAppState = () => {
-  const [currentState, setCurrentState] = useState<AppStateType>(AppState.INITIALIZING);
-  const [error, setError] = useState<string | null>(null);
-
-  const transitionTo = useCallback((newState: AppStateType, errorMessage?: string) => {
-    setCurrentState(newState);
-    setError(errorMessage || null);
-  }, []);
-
-  return {
-    currentState,
-    error,
-    transitionTo,
-    isInState: (state: AppStateType) => currentState === state
-  };
+export const isValidTransition = (currentState: AppStateType, newState: AppStateType): boolean => {
+  const validTransitions = StateTransitions[currentState];
+  return validTransitions.includes(newState);
 };
 ```
+
+**2. Add Simple State Manager (Temporary)**
+
+Create `src/utils/stateManager.ts`:
+```typescript
+import { AppState, AppStateType, StateTransitions, isValidTransition } from '../types/fsm';
+
+export class StateManager {
+  private currentState: AppStateType = AppState.INITIALIZING;
+  private stateChangeCallbacks: Array<(state: AppStateType) => void> = [];
+
+  getCurrentState(): AppStateType {
+    return this.currentState;
+  }
+
+  transitionTo(newState: AppStateType): boolean {
+    if (!isValidTransition(this.currentState, newState)) {
+      console.warn(`Invalid state transition: ${this.currentState} -> ${newState}`);
+      return false;
+    }
+    const previousState = this.currentState;
+    this.currentState = newState;
+    this.stateChangeCallbacks.forEach(callback => callback(this.currentState));
+    console.log(`State transition: ${previousState} -> ${newState}`);
+    return true;
+  }
+
+  subscribe(callback: (state: AppStateType) => void): () => void {
+    this.stateChangeCallbacks.push(callback);
+    return () => {
+      const index = this.stateChangeCallbacks.indexOf(callback);
+      if (index > -1) {
+        this.stateChangeCallbacks.splice(index, 1);
+      }
+    };
+  }
+
+  getValidTransitions(): AppStateType[] {
+    return [...StateTransitions[this.currentState]];
+  }
+
+  isTerminalState(): boolean {
+    return StateTransitions[this.currentState].length === 0;
+  }
+
+  reset(): void {
+    this.currentState = AppState.INITIALIZING;
+    this.stateChangeCallbacks.forEach(callback => callback(this.currentState));
+  }
+}
+
+export const appStateManager = new StateManager();
+export const getCurrentAppState = (): AppStateType => appStateManager.getCurrentState();
+export const transitionAppState = (newState: AppStateType): boolean => appStateManager.transitionTo(newState);
+export const subscribeToAppState = (callback: (state: AppStateType) => void): (() => void) => appStateManager.subscribe(callback);
+```
+
+> **Note:** This state manager is a temporary, minimal solution. It will be replaced by a real FSM library (like Robot3) in the future. The main value is in the state constants, transitions, and error mapping, which are all reusable.
 
 ---
 
@@ -151,7 +195,6 @@ export const validateEnvironment = () => {
   ];
 
   const missing = required.filter(key => !import.meta.env[key]);
-  
   if (missing.length > 0) {
     throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
   }
@@ -205,17 +248,61 @@ Create `DEVELOPMENT.md`:
 
 ---
 
+## FSM Library Migration (Robot3, XState, etc.)
+
+When you are ready to move to a real FSM library, here’s what happens:
+
+### What’s Reusable
+- **State constants/types**: 100% reusable for your FSM config
+- **Transition map**: Directly informs your FSM statechart
+- **Error-state mapping**: Still useful for error handling
+
+### What’s Replaced
+- **Custom StateManager**: Replaced by the FSM library’s machine instance and API
+- **Custom subscriptions**: Use the FSM library’s observer/subscription system
+
+### Migration Steps
+1. Replace the custom `StateManager` with the FSM library’s machine instance
+2. Use your existing `AppState` constants and `StateTransitions` to define the FSM config
+3. Update your code to use the FSM library’s API for transitions and subscriptions
+4. Remove the custom state manager code
+
+### Example Migration (Robot3)
+```typescript
+import { createMachine, state, transition } from 'robot3';
+import { AppState } from './types/fsm';
+
+const machine = createMachine({
+  [AppState.INITIALIZING]: state(
+    transition('CONFIG_ERROR', AppState.CONFIG_ERROR),
+    transition('MAP_READY', AppState.MAP_READY)
+  ),
+  // ...other states
+});
+```
+
+### Summary Table
+| Component                | Reusable with Robot3? | Notes                                 |
+|--------------------------|:--------------------:|---------------------------------------|
+| State constants/types    | ✅                   | Use as-is                             |
+| Transition map           | ✅                   | Use as reference for FSM config       |
+| Error-state mapping      | ✅                   | Use as-is                             |
+| Custom StateManager      | ❌                   | Replaced by Robot3’s machine instance |
+| Custom subscriptions     | ❌                   | Use Robot3’s observer API             |
+
+---
+
 ## Final Checklist Before Work Laptop Transfer
 
 - [x] Remove all `.js.bak` files
 - [x] Remove `.DS_Store` files
 - [x] Fix TypeScript `as any` usage
 - [x] Update `.gitignore`
-- [ ] Add FSM state constants and transitions
+- [x] Add FSM state constants and transitions
 - [ ] Add bundle analyzer
 - [ ] Add environment validation
 - [ ] Update documentation (`README.md`, `docs/api.md`, `DEVELOPMENT.md`)
 
 ---
 
-This plan will ensure your project is clean, maintainable, and ready for FSM integration and future work. 
+This plan ensures your project is clean, maintainable, and ready for FSM integration—whether you use the simple state manager now or migrate to a full-featured FSM library later. 

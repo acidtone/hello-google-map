@@ -3,6 +3,8 @@
  * Lightweight error handling with FSM-like patterns
  */
 
+import { AppState, AppStateType } from '../types/fsm';
+
 // Error types - can be expanded as needed
 const ErrorTypes = {
   LOCATION_PERMISSION: 'location_permission_denied',
@@ -96,6 +98,33 @@ function getErrorMessage(errorType: ErrorType): string {
 }
 
 /**
+ * Map error types to FSM states for automatic state transitions
+ * @param errorType - Categorized error type
+ * @returns The FSM state to transition to
+ */
+function getErrorState(errorType: ErrorType): AppStateType {
+  switch (errorType) {
+    case ErrorTypes.LOCATION_PERMISSION:
+    case ErrorTypes.LOCATION_UNAVAILABLE:
+      return AppState.LOCATION_ERROR;
+    case ErrorTypes.GEOCODING_FAILED:
+      return AppState.LOCATION_ERROR;
+    case ErrorTypes.POSTAL_CODE_FAILED:
+      return AppState.LOCATION_ERROR;
+    case ErrorTypes.BUSINESS_SEARCH_FAILED:
+      return AppState.SEARCH_ERROR;
+    case ErrorTypes.MAPS_API_FAILED:
+      return AppState.MAP_ERROR;
+    case ErrorTypes.GOOGLE_API_KEY_MISSING:
+      return AppState.CONFIG_ERROR;
+    case ErrorTypes.FOURSQUARE_API_KEY_MISSING:
+      return AppState.SEARCH_ERROR;
+    default:
+      return AppState.LOCATION_ERROR;
+  }
+}
+
+/**
  * Determine appropriate recovery action for an error
  * @param errorType - Categorized error type
  * @returns Recovery action to take
@@ -142,5 +171,6 @@ function handleError(error: unknown, context: string): ErrorInfo {
 export {
   ErrorTypes,
   RecoveryActions,
-  handleError
+  handleError,
+  getErrorState
 };

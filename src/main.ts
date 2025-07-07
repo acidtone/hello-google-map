@@ -44,6 +44,10 @@ import {
   RecoveryActions
 } from './services/errorService';
 
+// FSM State Manager - for future state machine integration
+import { appStateManager, transitionAppState, getCurrentAppState } from './utils/stateManager';
+import { AppState } from './types/fsm';
+
 // Add TypeScript declaration for window.gm_authFailure and initMap
 declare global {
   interface Window {
@@ -158,6 +162,9 @@ export function updateMapInitializationUI(data: MapInitializationData): void {
 // Initialize the map - this function is called by the Google Maps API
 window.initMap = function(): void {
   try {
+    // FSM: Transition to MAP_READY state
+    transitionAppState(AppState.MAP_READY);
+    
     // Initialize the map using the map service
     initializeMap("map");
     
@@ -172,6 +179,9 @@ window.initMap = function(): void {
     // Setup autocomplete for location predictions
     setupLocationPredictions();
   } catch (error: unknown) {
+    // FSM: Transition to MAP_ERROR state
+    transitionAppState(AppState.MAP_ERROR);
+    
     // Handle map initialization error
     updateMapInitializationUI({
       isReady: false,
