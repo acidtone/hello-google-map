@@ -217,3 +217,42 @@ This lightweight footprint is achieved through:
 - Modular code structure
 - Efficient error handling
 - No external state management libraries
+
+## Documentation
+
+### External API References
+- [Google Maps JavaScript API](https://developers.google.com/maps/documentation/javascript)
+- [Google Places API](https://developers.google.com/maps/documentation/javascript/places)
+- [Google Geocoding API](https://developers.google.com/maps/documentation/javascript/geocoding)
+- [Foursquare Places API](https://developer.foursquare.com/docs/places-api)
+
+### Key API Features Used
+- **Places Autocomplete**: Location search with suggestions
+- **Geocoding**: Postal code to coordinates conversion
+- **Nearby Search**: Business discovery around locations
+- **Markers & InfoWindows**: Business display on map
+
+## Development Workflow
+
+### Getting Started
+1. Clone and install dependencies
+2. Set up environment variables
+3. Start development server
+4. Open browser to `http://localhost:5173`
+
+### Common Development Tasks
+- **Adding new map features**: See `src/services/mapService.js`
+- **Modifying business search**: See `src/services/businessService.js`
+- **Error handling**: See `src/services/errorService.js`
+- **State management**: See FSM patterns in `src/services/`
+
+### Debugging Tips
+- Check browser console for API errors
+- Verify API keys in `.env` file
+- Test geolocation permissions
+
+## Known Issues
+
+- Geolocation may timeout on slow connections
+- Foursquare API requires HTTPS in production
+- Google Maps API has usage quotas
