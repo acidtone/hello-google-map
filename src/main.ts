@@ -405,7 +405,7 @@ type BusinessUpdateData = {
  * @param data - Contains businesses and related information
  */
 export function updateBusinessUI(data: BusinessUpdateData): void {
-  const { businesses, userLocation, state, error } = data;
+  const { businesses, userLocation, state } = data;
   
   // Clear business markers, preserving user location marker
   clearBusinessMarkers();
@@ -432,10 +432,10 @@ export function updateBusinessUI(data: BusinessUpdateData): void {
   businessesContainer.innerHTML = '<h2>Nearby Businesses</h2>';
   
   // Handle error state
-  if (error || state === BusinessState.ERROR) {
+  if (state === BusinessState.ERROR) {
     const errorMessage = document.createElement('p');
     errorMessage.className = 'error-message';
-    errorMessage.textContent = error?.message || 'There was an error searching for businesses. Please try again.';
+    errorMessage.textContent = 'There was an error searching for businesses. Please try again.';
     businessesContainer.appendChild(errorMessage);
     return;
   }
@@ -443,7 +443,7 @@ export function updateBusinessUI(data: BusinessUpdateData): void {
   // If no businesses found
   if (!businesses || businesses.length === 0) {
     const noResults = document.createElement('p');
-    noResults.textContent = 'No nearby businesses found';
+    noResults.textContent = 'No storefronts found near you.';
     businessesContainer.appendChild(noResults);
     return;
   }

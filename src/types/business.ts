@@ -86,3 +86,12 @@ export type BusinessSearchOptions = {
   limit?: number;
   sortBy?: 'distance' | 'rating' | string;
 };
+
+// Minimal provider interface for business data
+export interface BusinessProvider {
+  getNearbyBusinesses(
+    latitude: number,
+    longitude: number,
+    limit?: number
+  ): Promise<Business[]>;
+}

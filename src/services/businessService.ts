@@ -18,7 +18,8 @@
 
 import { handleError } from './errorService';
 import { updateInteractionUI } from '../main';
-import { fetchBusinessData } from '../actions/businessActions';
+import { BUSINESS_PROVIDER, FOURSQUARE_API_KEY } from '../config';
+import { BusinessProvider } from '../types/business';
 import { Business } from '../types/business';
 
 // Define types for marker interactions
@@ -59,62 +60,74 @@ function getBusinessState(): BusinessStateType {
   return currentBusinessState;
 }
 
-/**
- * Get nearby businesses using Foursquare Places API
- * 
- * FSM State Pattern:
- * - Entry State: IDLE
- * - During Execution: SEARCHING (explicit via BusinessState.SEARCHING)
- * - Success Exit States: 
- *   - READY (explicit via BusinessState.READY when businesses found)
- *   - READY (explicit via BusinessState.READY when no businesses found but API call succeeded)
- * - Error Exit State: ERROR (explicit via BusinessState.ERROR)
- * 
- * Now uses the fetchBusinessData action function for the API call,
- * while maintaining state management in this service.
- * 
- * @param latitude - Latitude coordinate
- * @param longitude - Longitude coordinate
- * @param limit - Maximum number of businesses to return
- * @returns Promise that resolves with an array of business objects
- */
-async function getNearbyBusinesses(
-  latitude: number, 
-  longitude: number, 
-  limit: number = 4
-): Promise<Business[]> {
-  try {
-    // Set state to SEARCHING at the start of the operation
-    currentBusinessState = BusinessState.SEARCHING;
-    
-    // Use the fetchBusinessData action function to get business data
-    const result = await fetchBusinessData(
-      { latitude, longitude },
-      limit
-    );
-    
-    // Handle the result based on success/failure
-    if (result.success) {
-      // Set state to READY regardless of whether businesses were found
-      // (empty results is a valid state, not an error)
-      currentBusinessState = BusinessState.READY;
-      return result.data;
-    } else {
-      // Set state to ERROR and throw the error for consistent error handling
-      currentBusinessState = BusinessState.ERROR;
-      throw result.error;
-    }
-
-  } catch (error: unknown) {
-    // Set state to ERROR
-    currentBusinessState = BusinessState.ERROR;
-    
-    // Use FSM-compatible error handling
-    const errorInfo = handleError(error, 'business_search');
-    console.error('Error fetching nearby businesses:', error, errorInfo);
-    return [];
+// FoursquareProvider implementation
+class FoursquareProvider implements BusinessProvider {
+  async getNearbyBusinesses(latitude: number, longitude: number, limit: number = 4) {
+    const url = 'https://api.foursquare.com/v3/places/search';
+    const params = new URLSearchParams({
+      ll: `${latitude},${longitude}`,
+      radius: '1000',
+      limit: limit.toString(),
+      categories: '13000,13065,17000,17062',
+      sort: 'DISTANCE',
+      fields: 'fsq_id,name,location,geocodes,website,tel,categories,rating,price,hours,description,photos,distance'
+    });
+    const response = await fetch(`${url}?${params}`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': FOURSQUARE_API_KEY
+      }
+    });
+    if (!response.ok) return [];
+    const data = await response.json();
+    return (data.results || []).map((place: any) => ({
+      id: place.fsq_id,
+      name: place.name,
+      location: {
+        address: place.location.address,
+        crossStreet: place.location.cross_street,
+        city: place.location.locality,
+        state: place.location.admin_region,
+        postalCode: place.location.postcode,
+        country: place.location.country,
+        coordinates: {
+          lat: place.location.geocodes?.main?.latitude || 0,
+          lng: place.location.geocodes?.main?.longitude || 0
+        },
+        formattedAddress: place.location.formatted_address ? [place.location.formatted_address] : undefined
+      },
+      categories: place.categories?.map((cat: any) => ({
+        id: cat.id,
+        name: cat.name,
+        icon: cat.icon
+      })),
+      website: place.website,
+      tel: place.tel,
+      rating: place.rating,
+      distance: place.distance,
+      description: place.description,
+      hours: place.hours ? {
+        status: place.hours.status,
+        isOpen: place.hours.is_open
+      } : undefined,
+      photos: place.photos?.map((photo: any) => ({
+        id: photo.id,
+        prefix: photo.prefix,
+        suffix: photo.suffix
+      }))
+    }));
   }
 }
+
+// Provider selection (config-based)
+const provider: BusinessProvider = (() => {
+  switch (BUSINESS_PROVIDER) {
+    case 'foursquare':
+    default:
+      return new FoursquareProvider();
+  }
+})();
 
 /**
  * Create default and highlighted marker icons for businesses
@@ -276,6 +289,24 @@ function setupBusinessClickInteraction(markerInfo: MarkerInfo): void {
         }
       }
     });
+  }
+}
+
+// Replace getNearbyBusinesses implementation:
+async function getNearbyBusinesses(
+  latitude: number, 
+  longitude: number, 
+  limit: number = 4
+): Promise<Business[]> {
+  try {
+    currentBusinessState = BusinessState.SEARCHING;
+    const businesses = await provider.getNearbyBusinesses(latitude, longitude, limit);
+    currentBusinessState = BusinessState.READY;
+    return businesses;
+  } catch (error: unknown) {
+    currentBusinessState = BusinessState.READY;
+    // Return empty array to trigger 'No storefronts found near you.'
+    return [];
   }
 }
 

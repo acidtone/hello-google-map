@@ -54,6 +54,9 @@ const AUTOCOMPLETE_CONFIG: AutocompleteConfig = {
   fields: ['address_components', 'geometry', 'name', 'formatted_address']
 };
 
+// Add business provider selection
+const BUSINESS_PROVIDER = 'foursquare'; // or 'dummy' in the future
+
 // Export configuration
 export {
   GOOGLE_MAPS_API_KEY,
@@ -61,7 +64,8 @@ export {
   DEFAULT_LOCATION,
   MAP_CONFIG,
   MAPS_API_CONFIG,
-  AUTOCOMPLETE_CONFIG
+  AUTOCOMPLETE_CONFIG,
+  BUSINESS_PROVIDER
 };
 
 /**
