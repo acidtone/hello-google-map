@@ -86,16 +86,12 @@ export class StateManager {
   }
 }
 
+const appStateManager = new StateManager();
+
 /**
  * Global state manager instance
  * Can be imported and used throughout the application
  */
-export const appStateManager = new StateManager();
-
-/**
- * Utility function to get current state
- */
-export const getCurrentAppState = (): AppStateType => appStateManager.getCurrentState();
 
 /**
  * Utility function to transition state

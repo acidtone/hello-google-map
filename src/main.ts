@@ -45,7 +45,7 @@ import {
 } from './services/errorService';
 
 // FSM State Manager - for future state machine integration
-import { appStateManager, transitionAppState, getCurrentAppState } from './utils/stateManager';
+import { transitionAppState } from './utils/stateManager';
 import { AppState } from './types/fsm';
 
 // Add TypeScript declaration for window.gm_authFailure and initMap
