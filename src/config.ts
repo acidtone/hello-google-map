@@ -55,7 +55,8 @@ const AUTOCOMPLETE_CONFIG: AutocompleteConfig = {
 };
 
 // Add business provider selection
-const BUSINESS_PROVIDER = 'foursquare'; // or 'dummy' in the future
+type BusinessProviderType = 'foursquare' | 'static' | 'composite';
+export const BUSINESS_PROVIDER: BusinessProviderType = 'foursquare'; // or 'static', 'composite'
 
 // Export configuration
 export {
@@ -64,8 +65,7 @@ export {
   DEFAULT_LOCATION,
   MAP_CONFIG,
   MAPS_API_CONFIG,
-  AUTOCOMPLETE_CONFIG,
-  BUSINESS_PROVIDER
+  AUTOCOMPLETE_CONFIG
 };
 
 /**
@@ -84,3 +84,5 @@ export function validateConfig(): boolean {
   
   return true;
 }
+
+export type { BusinessProviderType };
