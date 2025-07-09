@@ -14,7 +14,8 @@ import {
   setCenter,
   createBounds,
   fitBounds,
-  getMarkers
+  getMarkers,
+  getMap
 } from './services/mapService';
 
 import {
@@ -879,29 +880,12 @@ document.addEventListener('DOMContentLoaded', (): void => {
       if (mapVisible) {
         mapDiv.classList.remove('map-hidden');
         mapToggle.textContent = 'Hide Map';
-        // Animate/re-zoom the map when shown
+        // Trigger resize event to ensure map renders properly
         setTimeout(() => {
-          // Google Maps needs a resize event if the container was hidden
-          if (window.google && window.google.maps && mapDiv) {
-            const mapInstance = (window as any).map || null;
+          if (window.google && window.google.maps) {
+            const mapInstance = getMap();
             if (mapInstance && typeof google.maps.event.trigger === 'function') {
               google.maps.event.trigger(mapInstance, 'resize');
-            }
-          }
-          // Re-center and re-zoom (fit bounds or setCenter)
-          // Use setCenter from mapService if available
-          if (typeof setCenter === 'function') {
-            // Try to get the last known user location from the UI
-            const locationSpan = document.querySelector('.user-location span');
-            if (locationSpan && locationSpan.textContent) {
-              const match = locationSpan.textContent.match(/Lat: ([\d.-]+), Lng: ([\d.-]+)/);
-              if (match && match[1] !== undefined && match[2] !== undefined) {
-                const lat = parseFloat(match[1]);
-                const lng = parseFloat(match[2]);
-                if (!isNaN(lat) && !isNaN(lng)) {
-                  setCenter({ lat, lng });
-                }
-              }
             }
           }
         }, 100);
