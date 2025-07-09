@@ -449,10 +449,8 @@ export function updateBusinessUI(data: BusinessUpdateData): void {
   }
   
   // Create a list of businesses
-  const businessList = document.createElement('ul');
-  
-  // Labels for markers (A, B, C, D)
-  const labels: string[] = ['A', 'B', 'C', 'D'];
+  const businessList = document.createElement('ol');
+  businessList.className = 'business-list';
   
   // Create bounds for the map to fit all markers
   const bounds = createBounds();
@@ -464,18 +462,10 @@ export function updateBusinessUI(data: BusinessUpdateData): void {
   
   // Add each business to the list and create markers
   businesses.forEach((business: Business, index: number) => {
-    if (index >= labels.length) return; // Only process up to 4 businesses
-    
     const listItem = document.createElement('li');
     listItem.className = 'business-item';
     listItem.id = `business-${index}`; // Add unique ID for easier targeting
     listItem.dataset.index = index.toString(); // Convert number to string for dataset
-    
-    // Add label (A, B, C, D)
-    const label = document.createElement('span');
-    label.className = 'business-label';
-    label.textContent = labels[index] || '';
-    listItem.appendChild(label);
     
     // Business name
     const name = document.createElement('h3');
@@ -509,7 +499,7 @@ export function updateBusinessUI(data: BusinessUpdateData): void {
     
     // Create a marker if we have coordinates
     if (business.location && business.location.coordinates) {
-      // Use type assertion to handle the mismatch between TypeScript definition and runtime data
+      // Use the correct property names from the Coordinates type
       const position = {
         lat: business.location.coordinates.lat,
         lng: business.location.coordinates.lng
@@ -521,10 +511,10 @@ export function updateBusinessUI(data: BusinessUpdateData): void {
       // Get default and highlighted marker icons from business service
       const { default: defaultIcon, highlighted: highlightedIcon } = createBusinessMarkerIcons();
       
-      // Create marker with label using map service
+      // Create marker without label using map service
       const marker = addMarker(position, {
         label: {
-          text: labels[index] || '',
+          text: String.fromCharCode(65 + index), // Convert 0,1,2,3 to A,B,C,D
           color: '#FFFFFF',
           fontWeight: 'bold'
         },
@@ -875,6 +865,49 @@ document.addEventListener('DOMContentLoaded', (): void => {
         if (zipCode) {
           searchByZipCode(zipCode);
         }
+      }
+    });
+  }
+
+  const mapToggle = document.getElementById('map-toggle') as HTMLButtonElement | null;
+  const mapDiv = document.getElementById('map') as HTMLElement | null;
+
+  if (mapToggle && mapDiv) {
+    let mapVisible = false;
+    mapToggle.addEventListener('click', () => {
+      mapVisible = !mapVisible;
+      if (mapVisible) {
+        mapDiv.classList.remove('map-hidden');
+        mapToggle.textContent = 'Hide Map';
+        // Animate/re-zoom the map when shown
+        setTimeout(() => {
+          // Google Maps needs a resize event if the container was hidden
+          if (window.google && window.google.maps && mapDiv) {
+            const mapInstance = (window as any).map || null;
+            if (mapInstance && typeof google.maps.event.trigger === 'function') {
+              google.maps.event.trigger(mapInstance, 'resize');
+            }
+          }
+          // Re-center and re-zoom (fit bounds or setCenter)
+          // Use setCenter from mapService if available
+          if (typeof setCenter === 'function') {
+            // Try to get the last known user location from the UI
+            const locationSpan = document.querySelector('.user-location span');
+            if (locationSpan && locationSpan.textContent) {
+              const match = locationSpan.textContent.match(/Lat: ([\d.-]+), Lng: ([\d.-]+)/);
+              if (match && match[1] !== undefined && match[2] !== undefined) {
+                const lat = parseFloat(match[1]);
+                const lng = parseFloat(match[2]);
+                if (!isNaN(lat) && !isNaN(lng)) {
+                  setCenter({ lat, lng });
+                }
+              }
+            }
+          }
+        }, 100);
+      } else {
+        mapDiv.classList.add('map-hidden');
+        mapToggle.textContent = 'View Map';
       }
     });
   }

@@ -119,6 +119,12 @@ body {
   border-radius: 5px;
   margin-bottom: 20px;
   position: relative;
+  transition: opacity 0.3s;
+  opacity: 1;
+}
+
+#map.map-hidden {
+  opacity: 0;
 }
 
 .map-loading,
@@ -173,35 +179,24 @@ body {
   padding-bottom: 10px;
 }
 
-.businesses-container ul {
+.business-list {
   list-style: none;
   padding: 0;
   margin: 0;
+  counter-reset: business-counter;
 }
 
-.businesses-container li {
+.business-list li {
   padding: 15px;
   border-bottom: 1px solid #eee;
   position: relative;
-  padding-left: 40px; /* Make room for the label */
+  padding-left: 40px; /* Make room for the counter */
   transition: all 0.2s ease;
+  counter-increment: business-counter;
 }
 
-/* Using minimal contextual selector for highlighted items */
-.businesses-container .highlighted {
-  border: 3px solid #4285F4;
-  background-color: rgba(66, 133, 244, 0.1);
-  border-radius: 4px;
-  box-shadow: 0 0 5px rgba(66, 133, 244, 0.5);
-  z-index: 10;
-  position: relative;
-}
-
-.businesses-container li:hover {
-  background-color: #f0f7ff;
-}
-
-.business-label {
+.business-list li::before {
+  content: counter(business-counter, upper-alpha); /* A, B, C, D */
   position: absolute;
   left: 10px;
   top: 15px;
@@ -214,9 +209,24 @@ body {
   align-items: center;
   justify-content: center;
   font-weight: bold;
+  font-size: 12px;
 }
 
-.businesses-container li:last-child {
+/* Using minimal contextual selector for highlighted items */
+.businesses-container .highlighted {
+  border: 3px solid #4285F4;
+  background-color: rgba(66, 133, 244, 0.1);
+  border-radius: 4px;
+  box-shadow: 0 0 5px rgba(66, 133, 244, 0.5);
+  z-index: 10;
+  position: relative;
+}
+
+.business-list li:hover {
+  background-color: #f0f7ff;
+}
+
+.business-list li:last-child {
   border-bottom: none;
 }
 
@@ -248,6 +258,10 @@ body {
 
 .businesses-container a:hover {
   text-decoration: underline;
+}
+
+.map-hidden {
+  display: none !important;
 }
 
 /* Media query for larger screens to show map and businesses side by side */
