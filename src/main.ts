@@ -510,10 +510,9 @@ export function updateBusinessUI(data: BusinessUpdateData): void {
     // Create a marker if we have coordinates
     if (business.location && business.location.coordinates) {
       // Use type assertion to handle the mismatch between TypeScript definition and runtime data
-      const coordinates = business.location.coordinates as unknown as { latitude: number; longitude: number };
       const position = {
-        lat: coordinates.latitude,
-        lng: coordinates.longitude
+        lat: business.location.coordinates.lat,
+        lng: business.location.coordinates.lng
       };
       
       // Add position to bounds

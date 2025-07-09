@@ -22,12 +22,15 @@ import { BUSINESS_PROVIDER } from '../config';
 import { FoursquareProvider } from '../providers/foursquareProvider';
 import { StaticJsonProvider } from '../providers/staticJsonProvider';
 import { CompositeProvider } from '../providers/compositeProvider';
+import { DummyProvider } from '../providers/dummyProvider';
 
 // Provider selection (config-based)
 const provider = (() => {
   switch (BUSINESS_PROVIDER) {
     case 'foursquare':
       return new FoursquareProvider();
+    case 'dummy':
+      return new DummyProvider();
     case 'static':
       return new StaticJsonProvider();
     case 'composite':
