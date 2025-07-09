@@ -55,8 +55,8 @@ const AUTOCOMPLETE_CONFIG: AutocompleteConfig = {
 };
 
 // Add business provider selection
-type BusinessProviderType = 'foursquare' | 'static' | 'composite' | 'dummy' | 'dummyWithJSON';
-export const BUSINESS_PROVIDER: BusinessProviderType = 'foursquare'; // or 'dummy', 'dummyWithJSON', etc.
+type BusinessProviderType = 'foursquare' | 'composite' | 'dummy';
+export const BUSINESS_PROVIDER: BusinessProviderType = 'composite'; // or 'dummy', 'dummyWithJSON', etc.
 
 // Export configuration
 export {

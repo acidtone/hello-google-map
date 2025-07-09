@@ -1,1 +1,82 @@
-[]
+[
+  {
+    "id": "dummy-1",
+    "website": ""
+  },
+  {
+    "id": "dummy-2", 
+    "website": "https://premium-bookstore.ca"
+  },
+  {
+    "id": "dummy-3",
+    "website": "https://diner-downtown.com"
+  },
+  {
+    "id": "dummy-4",
+    "website": "https://florist-bloom.com"
+  },
+  {
+    "id": "dummy-5",
+    "website": "https://tech-repair-shop.com"
+  },
+  {
+    "id": "dummy-6",
+    "website": "https://bakery-fresh.ca"
+  },
+  {
+    "id": "dummy-7",
+    "website": "https://pharmacy-health.com"
+  },
+  {
+    "id": "dummy-8",
+    "website": "https://gym-fitness.com"
+  },
+  {
+    "id": "dummy-9",
+    "website": "https://salon-beauty.com"
+  },
+  {
+    "id": "dummy-10",
+    "website": "https://hardware-store.com"
+  },
+  {
+    "id": "dummy-11",
+    "website": "https://pet-store.com"
+  },
+  {
+    "id": "dummy-12",
+    "website": "https://jewelry-store.com"
+  },
+  {
+    "id": "dummy-13",
+    "website": "https://auto-repair.com"
+  },
+  {
+    "id": "dummy-14",
+    "website": "https://dry-cleaners.com"
+  },
+  {
+    "id": "dummy-15",
+    "website": "https://dentist-office.com"
+  },
+  {
+    "id": "dummy-16",
+    "website": "https://law-office.com"
+  },
+  {
+    "id": "dummy-17",
+    "website": "https://real-estate.com"
+  },
+  {
+    "id": "dummy-18",
+    "website": "https://insurance-office.com"
+  },
+  {
+    "id": "dummy-19",
+    "website": "https://travel-agency.com"
+  },
+  {
+    "id": "dummy-20",
+    "website": "https://tutoring-center.com"
+  }
+]

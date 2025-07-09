@@ -31,12 +31,10 @@ const provider = (() => {
       return new FoursquareProvider();
     case 'dummy':
       return new DummyProvider();
-    case 'static':
-      return new StaticJsonProvider();
     case 'composite':
       return new CompositeProvider([
-        new FoursquareProvider(),
-        new StaticJsonProvider()
+        new DummyProvider(), // Use dummy provider as the API source
+        new StaticJsonProvider() // Static JSON for website overrides
       ]);
     default:
       return new FoursquareProvider();
